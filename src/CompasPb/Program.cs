@@ -33,7 +33,7 @@ namespace CompasPb
                 var DataType = dataHandler.TryToGetType(item);
                 Console.WriteLine($"Unpacked item type: {DataType}");
                 var data = dataHandler.UnpackAnyData(item, DataType);
-                Console.WriteLine($"Unpacked item: {data.}");
+                Console.WriteLine($"Unpacked item: {data}");
             }
 
             // // Post Data (pack)

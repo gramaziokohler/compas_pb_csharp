@@ -109,7 +109,7 @@ namespace CompasPb.Data
                 float f => new PrimitiveData { Float = f },
                 string s => new PrimitiveData { Str = s },
                 bool b => new PrimitiveData { Bool = b },
-                byte byt => new PrimitiveData { Binary = ByteString.CopyFrom(new byte[] { byt }) },
+                byte byt => new PrimitiveData { Bytes = ByteString.CopyFrom(new byte[] { byt }) },
                 _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
             };
         }
@@ -232,7 +232,7 @@ namespace CompasPb.Data
                 PrimitiveData.DataOneofCase.Float => primitiveData.Float,
                 PrimitiveData.DataOneofCase.Str => primitiveData.Str,
                 PrimitiveData.DataOneofCase.Bool => primitiveData.Bool,
-                PrimitiveData.DataOneofCase.Binary => primitiveData.Binary.ToByteArray(),
+                PrimitiveData.DataOneofCase.Bytes => primitiveData.Bytes.ToByteArray(),
                 PrimitiveData.DataOneofCase.None => null,
                 _ => throw new ArgumentException($"Unknown data case: {primitiveData.DataCase}"),
             };
