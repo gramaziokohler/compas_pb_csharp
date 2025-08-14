@@ -1,0 +1,112 @@
+using System.Collections;
+using System.Data;
+using UnityEngine;
+using UnityEngine.Networking;
+
+public class HttpClient : MonoBehaviour
+{
+  [Header("Settings")]
+  public string serverUrl = "http://localhost:8000/api";
+
+  public System.Action<bool, string> OnGetResult;
+  public System.Action<bool, string> OnPostResult;
+  public UnityEngine.UI.Text statusText;
+
+
+  public void Start()
+  {
+    // For HTTPS, uncomment this line:
+    // System.Net.ServicePointManager.ServerCertificateValidationCallback = (a, b, c, d) => true;
+    UpdateStatus($"Connecting to backend at {serverUrl} ");
+  }
+  private void UpdateStatus(string status)
+  {
+    Debug.Log("Status: " + status);
+    if (statusText != null)
+    {
+      statusText.text = status;
+    }
+  }
+
+  // Test connection
+  public void TestConnection()
+  {
+    StartCoroutine(TestConnectionCoroutine());
+  }
+  IEnumerator TestConnectionCoroutine()
+  {
+    using (UnityWebRequest request = UnityWebRequest.Get(serverUrl))
+    {
+      yield return request.SendWebRequest();
+      bool success = request.result == UnityWebRequest.Result.Success;
+      if (!success)
+      {
+        UpdateStatus("Connection failed: " + request.error);
+      }
+      else
+      {
+        UpdateStatus("Connection successful!");
+      }
+    }
+  }
+
+  // Get methods
+  public void GetData()
+  {
+    StartCoroutine(GetDataRequest());
+  }
+  IEnumerator GetDataRequest()
+  {
+    string url = serverUrl + "/" + "sender";
+    using (UnityWebRequest request = UnityWebRequest.Get(url))
+    {
+      request.method = "GET";
+      yield return request.SendWebRequest();
+      bool success = request.result == UnityWebRequest.Result.Success;
+      string data = success ? request.downloadHandler.text : request.error;
+      if (!success)
+      {
+        UpdateStatus("Connection failed: " + request.error);
+      }
+      else
+      {
+        UpdateStatus("Connection successful!");
+        OnGetResult?.Invoke(true, data);
+        Debug.Log($"data: {data}");
+      }
+
+    }
+  }
+
+  // Post methods
+  public void PostData(byte[] data)
+  {
+    StartCoroutine(PostDataRequest(data));
+  }
+  IEnumerator PostDataRequest(byte[] data)
+  {
+    string url = serverUrl + "/" + "receiver";
+    // Use UnityWebRequest.Post with byte array for proper JSON
+    using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+    {
+      request.uploadHandler = new UploadHandlerRaw(data);
+      request.downloadHandler = new DownloadHandlerBuffer();
+      request.SetRequestHeader("Content-Type", "application/x-protobuf");
+      yield return request.SendWebRequest();
+
+      bool success = request.result == UnityWebRequest.Result.Success;
+      string responseData = success ? request.downloadHandler.text : request.error;
+
+      if (!success)
+      {
+        UpdateStatus("POST failed: " + request.error);
+      }
+      else
+      {
+        UpdateStatus("POST successful: " + responseData);
+        OnPostResult?.Invoke(true, responseData);
+        Debug.Log($"data: {responseData}");
+      }
+    }
+  }
+}

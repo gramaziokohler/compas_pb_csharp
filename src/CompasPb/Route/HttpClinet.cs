@@ -1,0 +1,112 @@
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+
+namespace CompasPb.Route
+{
+    public class RouteHttpClient
+    {
+        private readonly HttpClient _httpClient;
+        private readonly string _serverUrl;
+
+        public RouteHttpClient(string serverUrl)
+        {
+            _httpClient = new HttpClient();
+            _serverUrl = serverUrl ?? throw new ArgumentNullException(nameof(serverUrl));
+            Console.WriteLine($"HttpClient initialized with server URL: {_serverUrl}");
+        }
+
+        // Test the connection to the server
+        public async Task TestConnection()
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync(_serverUrl);
+                bool isSuccess = response.IsSuccessStatusCode;
+                if (isSuccess)
+                {
+                    Console.WriteLine($"Response status: {response.StatusCode}");
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"Failed to connect to the server. Status code: {response.StatusCode}"
+                    );
+                }
+            }
+            catch (HttpRequestException e) // Fixed: HttpRequestException instead of HttpIOException
+            {
+                Console.WriteLine($"HTTP request error: {e.Message}");
+            }
+            catch (TaskCanceledException e)
+            {
+                Console.WriteLine($"Request timeout: {e.Message}");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"An unexpected error occurred: {e.Message}");
+            }
+        }
+
+        public async Task<byte[]?> GetData()
+        {
+            String _url = $"{_serverUrl}/sender";
+            try
+            {
+                using (var response = await _httpClient.GetAsync(_url))
+                {
+                    if (response.IsSuccessStatusCode)
+                    {
+                        byte[] responseContent = await response.Content.ReadAsByteArrayAsync();
+                        return responseContent;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error response: {response.StatusCode}");
+                        return null;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"An error occurred while getting data: {e.Message}");
+                return null;
+            }
+        }
+
+        public async Task PostData(byte[] data)
+        {
+            string _url = $"{_serverUrl}/receiver";
+            try
+            {
+                using (var content = new ByteArrayContent(data))
+                {
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/x-protobuf");
+                    var response = await _httpClient.PostAsync(_url, content);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string responseContent = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine("Data posted successfully.");
+                    }
+                    else
+                    {
+                        string errorContent = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Error response: {errorContent}");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"An error occurred while posting data: {e.Message}");
+            }
+        }
+
+        // Dispose method to clean up resources
+        public void Dispose()
+        {
+            _httpClient?.Dispose();
+        }
+    }
+}
