@@ -2,9 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
+
+    <!-- Package metadata -->
+    <PackageId>CompasPb</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Wei-Ting Chen</Authors>
+    <Description> A COMPAS extension which lets you serialize and deserialize COMPAS Data types using protobuf.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

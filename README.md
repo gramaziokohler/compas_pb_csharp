@@ -1,11 +1,15 @@
 # Compas_PB C# Wrapper 
 
 
-```bash
+## Install
+
+```sh
 dotnet add package Google.Protobuf --version 3.31.0
+dotnet build src/CompasPb
+```
 
-cd src/CompasPb
+## Example 
 
-dotnet build
-dotnet run 
+```
+dotnet run --project example/UserCase
 ```

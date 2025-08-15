@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using CompasPb.Data;
 using CompasPb.Route;
 
-namespace CompasPb
+namespace CompasPb.Example
 {
     public class Program
     {
@@ -36,38 +36,38 @@ namespace CompasPb
                 Console.WriteLine($"Unpacked item: {data}");
             }
 
-            // // Post Data (pack)
-            // Console.WriteLine("Post the data to backend");
-            // List<object> nestedList = new List<object>()
-            // {
-            //     new List<int> { 1, 2, 3 },
-            //     new FrameData
-            //     {
-            //         Guid = Guid.NewGuid().ToString(),
-            //         Name = "testFrame",
-            //         Point = new PointData
-            //         {
-            //             X = 1.02F,
-            //             Y = 2.02F,
-            //             Z = 3.02F,
-            //         },
-            //         Xaxis = new VectorData
-            //         {
-            //             X = 1.02F,
-            //             Y = 0.02F,
-            //             Z = 0.02F,
-            //         },
-            //         Yaxis = new VectorData
-            //         {
-            //             X = 0.02F,
-            //             Y = 1.02F,
-            //             Z = 0.02F,
-            //         },
-            //     },
-            // };
-            // var packData = dataHandler.PackAsBytes(dataHandler.PackAsAnyData(nestedList));
-            // Console.WriteLine($"Packed data: {packData}");
-            // await client.PostData(packData);
+            // Post Data (pack)
+            Console.WriteLine("Post the data to backend");
+            List<object> nestedList = new List<object>()
+            {
+                new List<int> { 1, 2, 3 },
+                new FrameData
+                {
+                    Guid = Guid.NewGuid().ToString(),
+                    Name = "testFrame",
+                    Point = new PointData
+                    {
+                        X = 1.02F,
+                        Y = 2.02F,
+                        Z = 3.02F,
+                    },
+                    Xaxis = new VectorData
+                    {
+                        X = 1.02F,
+                        Y = 0.02F,
+                        Z = 0.02F,
+                    },
+                    Yaxis = new VectorData
+                    {
+                        X = 0.02F,
+                        Y = 1.02F,
+                        Z = 0.02F,
+                    },
+                },
+            };
+            var packData = dataHandler.PackAsBytes(dataHandler.PackAsAnyData(nestedList));
+            Console.WriteLine($"Packed data: {packData}");
+            await client.PostData(packData);
         }
     }
 }
