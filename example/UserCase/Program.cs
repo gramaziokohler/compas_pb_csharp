@@ -42,30 +42,30 @@ namespace CompasPb.UserCase
                     },
                 },
             };
-      var packData = dataHandler.PackAsBytes(dataHandler.PackAsAnyData(nestedList));
+      var packData = dataHandler.PackAsBytes(dataHandler.PackAsAnyData(dataHandler));
       Console.WriteLine($"Packed data: {packData}");
-      string filePath = "packedData.bin";
+      // string filePath = "packedData.bin";
       // Write the file
-      using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-      {
-        fileStream.Write(packData, 0, packData.Length);
-      }
-      Console.WriteLine($"Packed data written to packedData.pb");
+      //   using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+      //   {
+      //     fileStream.Write(packData, 0, packData.Length);
+      //   }
+      //   Console.WriteLine($"Packed data written to packedData.pb");
 
-      // Unpack data
-      byte[] response = File.ReadAllBytes(filePath);
-      var unpackedData = dataHandler.UnpackAsAnyData(response); 
-      var unpackedDataType = dataHandler.TryToGetType(unpackedData);
-      Console.WriteLine($"unpack the data type:{unpackedDataType}");
+      //   // Unpack data
+      //   byte[] response = File.ReadAllBytes(filePath);
+      //   var unpackedData = dataHandler.UnpackAsAnyData(response); 
+      //   var unpackedDataType = dataHandler.TryToGetType(unpackedData);
+      //   Console.WriteLine($"unpack the data type:{unpackedDataType}");
 
-      var lst = dataHandler.UnpackListData(unpackedData);
-      foreach (var item in lst)
-      {
-        var DataType = dataHandler.TryToGetType(item);
-        Console.WriteLine($"Unpacked item type: {DataType}");
-        var data = dataHandler.UnpackAnyData(item, DataType);
-        Console.WriteLine($"Unpacked {DataType}: {data}");
-      }
+      //   var lst = dataHandler.UnpackListData(unpackedData);
+      //   foreach (var item in lst)
+      //   {
+      //     var DataType = dataHandler.TryToGetType(item);
+      //     Console.WriteLine($"Unpacked item type: {DataType}");
+      //     var data = dataHandler.UnpackAnyData(item, DataType);
+      //     Console.WriteLine($"Unpacked {DataType}: {data}");
+      //   }
     }
   }
 }

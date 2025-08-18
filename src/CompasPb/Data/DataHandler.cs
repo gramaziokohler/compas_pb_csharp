@@ -2,36 +2,26 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using CompasPb.Data;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data
 {
-  /// <summary>
-  /// Handles data serialization and packaging operations for Protocol Buffer messages.
-  /// </summary>
   public class DataHandler
   {
     #region Pack Operations
     /// <summary>
     /// Packs the given object into a byte array.
     /// </summary>
-    /// <param name="data">The AnyData to pack.</param>
-    /// <returns>A byte array representing the packed data.</returns>
     public byte[] PackAsBytes(AnyData data)
     {
       MessageData messageData = new MessageData { Data = data };
       byte[] dataBytes = messageData.ToByteArray();
       return dataBytes;
     }
-
     /// <summary>
     /// Packs the given object into an AnyData.
     /// </summary>
-    /// <param name="obj"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
     public AnyData PackAsAnyData(object obj)
     {
       return obj switch
@@ -41,24 +31,23 @@ namespace CompasPb.Data
             "Object to pack cannot be null."
         ),
 
-        // IMessage like FrameData, VectorData
+        // IMessage like FrameData, VectorData, ...
         IMessage message => new AnyData { Data = Any.Pack(message) },
-
         // List
         IEnumerable items when obj is not string => PackAnyData(PackList(items)),
-
         // Dictionary
         IEnumerable<KeyValuePair<string, object>> dict when obj is not string =>
             PackAnyData(PackDict(dict.ToDictionary(kv => kv.Key, kv => kv.Value))),
-
         // Primitive types
-        _ => PackAnyData(PackPrimitiveData(obj)),
-        // addd more types as needed
+        int or float or string or bool or byte => PackAnyData(PackPrimitiveData(obj)),
+
+        _ => throw new ArgumentException(
+            $"Unsupported type: {obj.GetType()}. Supported types are IMessage, IEnumerable, Dictionary, and primitive types."
+        ),
       };
     }
 
-    private AnyData PackAnyData<T>(T obj)
-        where T : IMessage<T>
+    private AnyData PackAnyData<T>(T obj) where T : IMessage<T>
     {
       if (obj == null)
       {
@@ -98,6 +87,7 @@ namespace CompasPb.Data
       return dictData;
     }
 
+    // Maybe align with new update with COMPASPB
     private PrimitiveData PackPrimitiveData(object value)
     {
       if (value == null)
@@ -115,7 +105,6 @@ namespace CompasPb.Data
       };
     }
     #endregion
-
 
     #region Unpack Operations
     public AnyData UnpackAsAnyData(byte[] data)
