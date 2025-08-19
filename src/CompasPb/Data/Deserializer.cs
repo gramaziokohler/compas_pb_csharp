@@ -69,7 +69,7 @@ namespace CompasPb.Data
       var result = new List<object?>();
       foreach (var item in listData.Data)
       {
-        result.Add(Unpack(item));
+        result.Add(UnpackAnyData(item));
       }
       return result;
     }
@@ -85,7 +85,7 @@ namespace CompasPb.Data
       var result = new Dictionary<string, object?>();
       foreach (var kvp in dictData.Data)
       {
-        result[kvp.Key] = Unpack(kvp.Value);
+        result[kvp.Key] = UnpackAnyData(kvp.Value);
       }
       return result;
     }
