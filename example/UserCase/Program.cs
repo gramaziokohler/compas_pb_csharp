@@ -54,12 +54,16 @@ namespace CompasPb.UserCase
 
       Console.WriteLine("======= Unpacking Data without given type =======");
       var unpacked = Deserializer.UnpackAnyData(responsedMessage);
-      Console.WriteLine($"Unpacked data: {unpacked}");
+      foreach (var item in unpacked as IEnumerable<object>)
+      {
+        Console.WriteLine($"Item: {item}; Type: {item?.GetType()}");
+        Console.WriteLine($"Type: {item?.GetType()}");
+      }
 
-      Console.WriteLine("======= Unpacking Data with given type =======");
-      var responesDataType = Deserializer.GetType(responsedMessage);
-      var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
-      Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
+      // Console.WriteLine("======= Unpacking Data with given type =======");
+      // var responesDataType = Deserializer.GetType(responsedMessage);
+      // var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
+      // Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
     }
   }
 }

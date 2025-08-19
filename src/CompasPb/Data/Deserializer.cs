@@ -35,11 +35,15 @@ namespace CompasPb.Data
         nameof(ListData) => UnpackListData(data),
         nameof(DictData) => UnpackDictData(data),
         nameof(PrimitiveData) => UnpackPrimitiveData(data),
-        _ when typeof(IMessage).IsAssignableFrom(dataType) => data.Data.UnpackAs(dataType),
-        // handle as dictionary
+        _ when typeof(IMessage).IsAssignableFrom(dataType) => UnpackAs(data.Data, dataType),
+        // Maybe some fallback handle as dictionary
         _ => throw new ArgumentException($"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData.")
       };
     }
+
+    /// <summary>
+    /// Unpacks the given AnyData into an object of type T.
+    /// </summary>
     public static T? Unpack<T>(AnyData data) where T : class, IMessage<T>, new()
     {
         if (data?.Data == null)
@@ -58,7 +62,7 @@ namespace CompasPb.Data
       return Registry.GetType(typeUrl);
     }
 
-    private static IEnumerable<object?> UnpackListData(AnyData data)
+    private static List<Object?> UnpackListData(AnyData data)
     {
       if (data == null)
         throw new ArgumentNullException(nameof(data), "ListData to unpack cannot be null.");
@@ -110,20 +114,35 @@ namespace CompasPb.Data
       };
     }
 
-    private static object? UnpackAs(this Any anyData, System.Type targetType)
+    private static object? UnpackAs(Any anyData, System.Type targetType)
     {
       if (anyData == null || targetType == null)
         return null;
 
-      var method = typeof(Any).GetMethod("TryUnpack", new System.Type[0])
-                              ?.MakeGenericMethod(targetType);
-      if (method == null)
-        return null;
+      try
+      {
+        var method = typeof(Any).GetMethods()
+          .FirstOrDefault(m => 
+            m.Name == "TryUnpack" && 
+            m.IsGenericMethodDefinition && 
+            m.GetParameters().Length == 1)
+          ?.MakeGenericMethod(targetType); // create a generic method for the target type
 
-      var parameters = new object?[] { null };
-      var result = method.Invoke(anyData, parameters);
-      var success = result != null && (bool)result;
-      return success ? parameters[0] : null;
+        if (method == null)
+          return null;
+
+        var parameters = new object?[] { null };
+        var result = method.Invoke(anyData, parameters);
+        if (result is bool success && success)
+        {
+          return parameters[0]; 
+        }
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"Failed to unpack {targetType.Name}: {ex.Message}");
+      }
+      return null;
     }
   }
 }
