@@ -8,6 +8,7 @@ namespace CompasPb.Data
 {
   public static class Registry
   {
+    // thead-safe dictionary to store registered types
     private static readonly ConcurrentDictionary<string, System.Type> _protoRegistry = new();
     private static bool _initialized = false;
 
@@ -46,12 +47,21 @@ namespace CompasPb.Data
       return _protoRegistry.Values;
     }
 
-    public static System.Type? GetType(string typeName)
+    public static System.Type? GetType(string typeUrl)
     {
-      _protoRegistry.TryGetValue(typeName, out var type);
-      return type;
+      if (string.IsNullOrEmpty(typeUrl))
+        return null;
+       
+      typeUrl = typeUrl.Substring("type.googleapis.com/compas_pb.data.".Length);
+      if (_protoRegistry.TryGetValue(typeUrl, out var type))
+        return type;
+
+      // Fallback: search by simple type name or full name
+      return _protoRegistry.Values
+          .FirstOrDefault(t => t.Name == typeUrl || t.FullName == typeUrl);
     }
-    public static void RegisterType<T>() where T : IMessage<T>
+
+    private static void RegisterType<T>() where T : IMessage<T>
     {
       var type = typeof(T);
       var typeUrl = $"type.googleapis.com/{type.FullName}";

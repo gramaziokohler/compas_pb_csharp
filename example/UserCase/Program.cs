@@ -13,8 +13,6 @@ namespace CompasPb.UserCase
       Console.WriteLine("Example");
 
       // Pack Data
-      DataHandler dataHandler = new DataHandler();
-      Console.WriteLine("Pack data");
       List<object> nestedList = new List<object>()
             {
                 new List<int> { 1, 2, 3 },
@@ -42,22 +40,26 @@ namespace CompasPb.UserCase
                     },
                 },
             };
-      var packData = dataHandler.PackAsBytes(dataHandler.PackAsAnyData(dataHandler));
+      var packData = Serializer.PackAsBytes(Serializer.PackAsAnyData(nestedList));
       Console.WriteLine($"Packed data: {packData}");
-      // string filePath = "packedData.bin";
-      // Write the file
-      //   using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-      //   {
-      //     fileStream.Write(packData, 0, packData.Length);
-      //   }
-      //   Console.WriteLine($"Packed data written to packedData.pb");
 
-      //   // Unpack data
-      //   byte[] response = File.ReadAllBytes(filePath);
-      //   var unpackedData = dataHandler.UnpackAsAnyData(response); 
-      //   var unpackedDataType = dataHandler.TryToGetType(unpackedData);
-      //   Console.WriteLine($"unpack the data type:{unpackedDataType}");
+      string filePath = "packedData.bin";
+        using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+        {
+          fileStream.Write(packData, 0, packData.Length);
+        }
+        Console.WriteLine($"Packed data written to {filePath}");
 
+        // Unpack data
+        byte[] response = File.ReadAllBytes(filePath);
+        var responsedMessage = Deserializer.UnpackBytes(response);
+        var unpackedData = Deserializer.UnpackAnyData(responsedMessage); 
+        Console.WriteLine($"Unpacked data: {unpackedData}");
+
+
+        // var unpackedData2 = Deserializer.Unpack<ListData>(responsedMessage);
+        // Console.WriteLine($"Unpacked data: {unpackedData}");
+        // Console.WriteLine($"Unpacked data type: {unpackedDataType}");
       //   var lst = dataHandler.UnpackListData(unpackedData);
       //   foreach (var item in lst)
       //   {

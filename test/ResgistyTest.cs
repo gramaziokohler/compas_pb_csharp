@@ -25,6 +25,7 @@ public class RegistryTest
     };
 
     var registeredTypes = Registry.GetRegisteredTypes().ToList();
+    Console.WriteLine(registeredTypes.Count);
     foreach (var instance in expected)
     {
         var instanceType = instance.GetType();
