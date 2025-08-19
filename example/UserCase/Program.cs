@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using CompasPb.Data;
-using CompasPb.Route;
 
 namespace CompasPb.UserCase
 {
@@ -11,10 +10,7 @@ namespace CompasPb.UserCase
     static void Main(string[] args)
     {
       Console.WriteLine("Example");
-
       // Pack Data
-      DataHandler dataHandler = new DataHandler();
-      Console.WriteLine("Pack data");
       List<object> nestedList = new List<object>()
             {
                 new List<int> { 1, 2, 3 },
@@ -42,30 +38,28 @@ namespace CompasPb.UserCase
                     },
                 },
             };
-      var packData = dataHandler.PackAsBytes(dataHandler.PackAsAnyData(nestedList));
+      var packData = Serializer.PackAsBytes(Serializer.PackAsAnyData(nestedList));
       Console.WriteLine($"Packed data: {packData}");
+
       string filePath = "packedData.bin";
-      // Write the file
       using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
       {
         fileStream.Write(packData, 0, packData.Length);
       }
-      Console.WriteLine($"Packed data written to packedData.pb");
+      Console.WriteLine($"Packed data written to {filePath}");
 
       // Unpack data
       byte[] response = File.ReadAllBytes(filePath);
-      var unpackedData = dataHandler.UnpackAsAnyData(response); 
-      var unpackedDataType = dataHandler.TryToGetType(unpackedData);
-      Console.WriteLine($"unpack the data type:{unpackedDataType}");
+      var responsedMessage = Deserializer.UnpackBytes(response);
 
-      var lst = dataHandler.UnpackListData(unpackedData);
-      foreach (var item in lst)
-      {
-        var DataType = dataHandler.TryToGetType(item);
-        Console.WriteLine($"Unpacked item type: {DataType}");
-        var data = dataHandler.UnpackAnyData(item, DataType);
-        Console.WriteLine($"Unpacked {DataType}: {data}");
-      }
+      Console.WriteLine("======= Unpacking Data without given type =======");
+      var unpacked = Deserializer.UnpackAnyData(responsedMessage);
+      Console.WriteLine($"Unpacked data: {unpacked}");
+
+      Console.WriteLine("======= Unpacking Data with given type =======");
+      var responesDataType = Deserializer.GetType(responsedMessage);
+      var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
+      Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
     }
   }
 }
