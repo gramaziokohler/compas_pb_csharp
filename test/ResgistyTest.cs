@@ -1,37 +1,22 @@
-using Xunit;
-using CompasPb.Data;
 using System;
-using System.Linq;
-using System.Collections.Generic;
-using Google.Protobuf;
+using CompasPb.Data;
+using Xunit;
 
 public class RegistryTest
 {
-  [Fact]
-  public void TestRegistry()
-  {
-    var expected = new List<IMessage>
+    [Theory]
+    [InlineData(typeof(PointData))]
+    [InlineData(typeof(LineData))]
+    [InlineData(typeof(FrameData))]
+    [InlineData(typeof(VectorData))]
+    [InlineData(typeof(MeshData))]
+    [InlineData(typeof(CircleData))]
+    [InlineData(typeof(PrimitiveData))]
+    [InlineData(typeof(ListData))]
+    [InlineData(typeof(DictData))]
+    public void GetRegistered_Type(Type expectedType)
     {
-      new PointData(),
-      new LineData(),
-      new FrameData(),
-      new VectorData(),
-      new MeshData(),
-      new CircleData(),
-      new PrimitiveData(),
-      new ListData(),
-      new DictData(),
-      // Add other message types as needed
-    };
-
-    var registeredTypes = Registry.GetRegisteredTypes().ToList();
-    Console.WriteLine(registeredTypes.Count);
-    foreach (var instance in expected)
-    {
-        var instanceType = instance.GetType();
-        bool isRegistered = registeredTypes.Contains(instanceType);
-        Console.WriteLine($"Type {instanceType.Name}: {(isRegistered ? "Registered" : "Missing")}");
-        Assert.True(isRegistered, $"{instanceType.Name} should be registered");
+        var registeredTypes = Registry.GetRegisteredTypes();
+        Assert.Contains(expectedType, registeredTypes);
     }
-  }
 }
