@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using CompasPb.Data;
 using CompasPb.Route;
 
-namespace CompasPb.Example
+namespace CompasPb.HttpExample
 {
     public class Program
     {

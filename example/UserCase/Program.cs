@@ -5,13 +5,13 @@ using CompasPb.Data;
 
 namespace CompasPb.UserCase
 {
-  class Program
-  {
-    static void Main(string[] args)
+    class Program
     {
-      Console.WriteLine("Example");
-      // Pack Data
-      List<object> nestedList = new List<object>()
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Example");
+            // Pack Data
+            List<object> nestedList = new List<object>()
             {
                 new List<int> { 1, 2, 3 },
                 new FrameData
@@ -38,32 +38,32 @@ namespace CompasPb.UserCase
                     },
                 },
             };
-      var packData = Serializer.PackAsBytes(Serializer.PackAsAnyData(nestedList));
-      Console.WriteLine($"Packed data: {packData}");
+            var packData = Serializer.PackAsBytes(Serializer.PackAsAnyData(nestedList));
+            Console.WriteLine($"Packed data: {packData}");
 
-      string filePath = "packedData.bin";
-      using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-      {
-        fileStream.Write(packData, 0, packData.Length);
-      }
-      Console.WriteLine($"Packed data written to {filePath}");
+            string filePath = "packedData.bin";
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+            {
+                fileStream.Write(packData, 0, packData.Length);
+            }
+            Console.WriteLine($"Packed data written to {filePath}");
 
-      // Unpack data
-      byte[] response = File.ReadAllBytes(filePath);
-      var responsedMessage = Deserializer.UnpackBytes(response);
+            // Unpack data
+            byte[] response = File.ReadAllBytes(filePath);
+            var responsedMessage = Deserializer.UnpackBytes(response);
 
-      Console.WriteLine("======= Unpacking Data without given type =======");
-      var unpacked = Deserializer.UnpackAnyData(responsedMessage);
-      foreach (var item in unpacked as IEnumerable<object>)
-      {
-        Console.WriteLine($"Item: {item}; Type: {item?.GetType()}");
-        Console.WriteLine($"Type: {item?.GetType()}");
-      }
+            Console.WriteLine("======= Unpacking Data without given type =======");
+            var unpacked = Deserializer.UnpackAnyData(responsedMessage);
+            foreach (var item in unpacked as IEnumerable<object>)
+            {
+                Console.WriteLine($"Item: {item}; Type: {item?.GetType()}");
+                Console.WriteLine($"Type: {item?.GetType()}");
+            }
 
-      // Console.WriteLine("======= Unpacking Data with given type =======");
-      // var responesDataType = Deserializer.GetType(responsedMessage);
-      // var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
-      // Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
+            // Console.WriteLine("======= Unpacking Data with given type =======");
+            // var responesDataType = Deserializer.GetType(responsedMessage);
+            // var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
+            // Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
+        }
     }
-  }
 }
