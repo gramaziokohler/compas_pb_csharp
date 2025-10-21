@@ -1,4 +1,4 @@
-# comaps_pb C# Wrapper 
+# compas_pb C# Wrapper 
 
 
 ## Install
