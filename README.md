@@ -1,11 +1,13 @@
 # compas_pb C# Wrapper 
 
 
-## Install
+## Development
 
 ```sh
+dotnet new sln
+dotnet sln add src\CompasPb\CompasPb.csproj
 dotnet restore
-dotnet build src/CompasPb
+dotnet build
 ```
 
 ## Example 
@@ -13,3 +15,4 @@ dotnet build src/CompasPb
 ```
 dotnet run --project example/UserCase
 ```
+
