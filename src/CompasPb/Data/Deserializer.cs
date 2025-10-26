@@ -1,16 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Google.Protobuf;
-using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using Google.Protobuf;
+    using Google.Protobuf.WellKnownTypes;
+
     public static class Deserializer
     {
         /// <summary>
         /// Unpacks a byte array into an AnyData.
         /// </summary>
+        /// <returns></returns>
         public static AnyData UnpackBytes(byte[] data)
         {
             MessageData messageData = MessageData.Parser.ParseFrom(data);
@@ -20,14 +22,19 @@ namespace CompasPb.Data
         /// <summary>
         /// Unpacks the given AnyData into an object.
         /// </summary>
+        /// <returns></returns>
         public static object? UnpackAnyData(AnyData data, System.Type? dataType = null)
         {
             if (data?.Data == null)
+            {
                 throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
+            }
 
             dataType ??= GetType(data);
             if (dataType == null)
+            {
                 return null;
+            }
 
             return dataType.Name switch
             {
@@ -35,18 +42,23 @@ namespace CompasPb.Data
                 nameof(DictData) => UnpackDictData(data),
                 nameof(PrimitiveData) => UnpackPrimitiveData(data),
                 _ when typeof(IMessage).IsAssignableFrom(dataType) => UnpackAs(data.Data, dataType),
+
                 // Maybe some fallback handle as dictionary
-                _ => throw new ArgumentException($"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData.")
+                _ => throw new ArgumentException($"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData."),
             };
         }
 
         /// <summary>
         /// Unpacks the given AnyData into an object of type T.
         /// </summary>
-        public static T? Unpack<T>(AnyData data) where T : class, IMessage<T>, new()
+        /// <returns></returns>
+        public static T? Unpack<T>(AnyData data)
+            where T : class, IMessage<T>, new()
         {
             if (data?.Data == null)
+            {
                 throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
+            }
 
             return data.Data.TryUnpack<T>(out T result) ? result : null;
         }
@@ -54,52 +66,72 @@ namespace CompasPb.Data
         public static System.Type? GetType(AnyData data)
         {
             if (data?.Data == null)
+            {
                 return null;
+            }
+
             string typeUrl = data.Data.TypeUrl;
             if (string.IsNullOrEmpty(typeUrl))
+            {
                 return null;
+            }
+
             return Registry.GetType(typeUrl);
         }
 
-        private static List<Object?> UnpackListData(AnyData data)
+        private static List<object?> UnpackListData(AnyData data)
         {
             if (data == null)
+            {
                 throw new ArgumentNullException(nameof(data), "ListData to unpack cannot be null.");
+            }
 
             if (!data.Data.TryUnpack<ListData>(out ListData listData))
+            {
                 throw new InvalidOperationException("Failed to unpack as ListData.");
+            }
 
             var result = new List<object?>();
             foreach (var item in listData.Data)
             {
                 result.Add(UnpackAnyData(item));
             }
+
             return result;
         }
 
         private static Dictionary<string, object?> UnpackDictData(AnyData data)
         {
             if (data == null)
+            {
                 throw new ArgumentNullException(nameof(data), "DictData to unpack cannot be null.");
+            }
 
             if (!data.Data.TryUnpack<DictData>(out DictData dictData))
+            {
                 throw new InvalidOperationException("Failed to unpack as DictData.");
+            }
 
             var result = new Dictionary<string, object?>();
             foreach (var kvp in dictData.Data)
             {
                 result[kvp.Key] = UnpackAnyData(kvp.Value);
             }
+
             return result;
         }
 
         private static object? UnpackPrimitiveData(AnyData data)
         {
             if (data == null)
+            {
                 throw new ArgumentNullException(nameof(data), "PrimitiveData to unpack cannot be null.");
+            }
 
             if (!data.Data.TryUnpack<PrimitiveData>(out PrimitiveData primitiveData))
+            {
                 throw new InvalidOperationException("Failed to unpack as PrimitiveData.");
+            }
 
             return primitiveData.DataCase switch
             {
@@ -116,7 +148,9 @@ namespace CompasPb.Data
         private static object? UnpackAs(Any anyData, System.Type targetType)
         {
             if (anyData == null || targetType == null)
+            {
                 return null;
+            }
 
             try
             {
@@ -128,7 +162,9 @@ namespace CompasPb.Data
                   ?.MakeGenericMethod(targetType); // create a generic method for the target type
 
                 if (method == null)
+                {
                     return null;
+                }
 
                 var parameters = new object?[] { null };
                 var result = method.Invoke(anyData, parameters);
@@ -141,6 +177,7 @@ namespace CompasPb.Data
             {
                 Console.WriteLine($"Failed to unpack {targetType.Name}: {ex.Message}");
             }
+
             return null;
         }
     }

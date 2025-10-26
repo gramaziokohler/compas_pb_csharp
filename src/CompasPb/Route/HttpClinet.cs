@@ -1,20 +1,21 @@
-using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading.Tasks;
 
 namespace CompasPb.Route
 {
+    using System;
+    using System.Net.Http;
+    using System.Net.Http.Headers;
+    using System.Threading.Tasks;
+
     public class RouteHttpClient
     {
-        private readonly HttpClient _httpClient;
-        private readonly string _serverUrl;
+        private readonly HttpClient httpClient;
+        private readonly string serverUrl;
 
         public RouteHttpClient(string serverUrl)
         {
-            _httpClient = new HttpClient();
-            _serverUrl = serverUrl ?? throw new ArgumentNullException(nameof(serverUrl));
-            Console.WriteLine($"HttpClient initialized with server URL: {_serverUrl}");
+            this.httpClient = new HttpClient();
+            this.serverUrl = serverUrl ?? throw new ArgumentNullException(nameof(serverUrl));
+            Console.WriteLine($"HttpClient initialized with server URL: {this.serverUrl}");
         }
 
         // Test the connection to the server
@@ -22,7 +23,7 @@ namespace CompasPb.Route
         {
             try
             {
-                var response = await _httpClient.GetAsync(_serverUrl);
+                var response = await this.httpClient.GetAsync(this.serverUrl);
                 bool isSuccess = response.IsSuccessStatusCode;
                 if (isSuccess)
                 {
@@ -31,8 +32,7 @@ namespace CompasPb.Route
                 else
                 {
                     Console.WriteLine(
-                        $"Failed to connect to the server. Status code: {response.StatusCode}"
-                    );
+                        $"Failed to connect to the server. Status code: {response.StatusCode}");
                 }
             }
             catch (HttpRequestException e) // Fixed: HttpRequestException instead of HttpIOException
@@ -51,10 +51,10 @@ namespace CompasPb.Route
 
         public async Task<byte[]?> GetData()
         {
-            String _url = $"{_serverUrl}/sender";
+            string url = $"{this.serverUrl}/sender";
             try
             {
-                using (var response = await _httpClient.GetAsync(_url))
+                using (var response = await this.httpClient.GetAsync(url))
                 {
                     if (response.IsSuccessStatusCode)
                     {
@@ -77,13 +77,13 @@ namespace CompasPb.Route
 
         public async Task PostData(byte[] data)
         {
-            string _url = $"{_serverUrl}/receiver";
+            string url = $"{this.serverUrl}/receiver";
             try
             {
                 using (var content = new ByteArrayContent(data))
                 {
                     content.Headers.ContentType = new MediaTypeHeaderValue("application/x-protobuf");
-                    var response = await _httpClient.PostAsync(_url, content);
+                    var response = await this.httpClient.PostAsync(url, content);
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -106,7 +106,7 @@ namespace CompasPb.Route
         // Dispose method to clean up resources
         public void Dispose()
         {
-            _httpClient?.Dispose();
+            this.httpClient?.Dispose();
         }
     }
 }

@@ -1,16 +1,17 @@
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using Google.Protobuf;
 
 namespace CompasPb.Data
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
+    using Google.Protobuf;
+
     public static class Registry
     {
         // thead-safe dictionary to store registered types
-        private static readonly ConcurrentDictionary<string, System.Type> _protoRegistry = new();
-        private static bool _initialized = false;
+        private static readonly ConcurrentDictionary<string, System.Type> ProtoRegistry = new();
+        private static bool initialized = false;
 
         static Registry()
         {
@@ -19,12 +20,13 @@ namespace CompasPb.Data
 
         private static void Initialize()
         {
-            if (_initialized)
+            if (initialized)
             {
                 return;
             }
+
             RegisterAllTypes();
-            _initialized = true;
+            initialized = true;
         }
 
         private static void RegisterAllTypes()
@@ -38,19 +40,21 @@ namespace CompasPb.Data
 
             foreach (var type in types)
             {
-                _protoRegistry[type.Name] = type;
+                ProtoRegistry[type.Name] = type;
             }
         }
 
         public static IEnumerable<Type> GetRegisteredTypes()
         {
-            return _protoRegistry.Values;
+            return ProtoRegistry.Values;
         }
 
         public static System.Type? GetType(string typeUrl)
         {
             if (string.IsNullOrEmpty(typeUrl))
+            {
                 return null;
+            }
 
             // Handle full type URL
             if (typeUrl.StartsWith("type.googleapis.com/"))
@@ -59,24 +63,29 @@ namespace CompasPb.Data
             }
 
             // Try direct lookup first (full name like "compas_pb.data.FrameData")
-            if (_protoRegistry.TryGetValue(typeUrl, out var type))
+            if (ProtoRegistry.TryGetValue(typeUrl, out var type))
+            {
                 return type;
+            }
 
             // Try simple name lookup (just "FrameData")
             string simpleName = typeUrl.Contains('.') ? typeUrl.Split('.').Last() : typeUrl;
-            if (_protoRegistry.TryGetValue(simpleName, out type))
+            if (ProtoRegistry.TryGetValue(simpleName, out type))
+            {
                 return type;
+            }
 
             // Fallback: search by simple type name or full name
-            return _protoRegistry.Values
+            return ProtoRegistry.Values
                 .FirstOrDefault(t => t.Name == simpleName || t.FullName == typeUrl);
         }
 
-        private static void RegisterType<T>() where T : IMessage<T>
+        private static void RegisterType<T>()
+            where T : IMessage<T>
         {
             var type = typeof(T);
             var typeUrl = $"type.googleapis.com/{type.FullName}";
-            _protoRegistry.TryAdd(typeUrl, type);
+            ProtoRegistry.TryAdd(typeUrl, type);
         }
     }
 }

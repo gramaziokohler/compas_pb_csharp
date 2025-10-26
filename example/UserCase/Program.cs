@@ -1,15 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using CompasPb.Data;
 
 namespace CompasPb.UserCase
 {
-    class Program
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using CompasPb.Data;
+
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Console.WriteLine("Example");
+
             // Pack Data
             List<object> nestedList = new List<object>()
             {
@@ -46,6 +48,7 @@ namespace CompasPb.UserCase
             {
                 fileStream.Write(packData, 0, packData.Length);
             }
+
             Console.WriteLine($"Packed data written to {filePath}");
 
             // Unpack data
