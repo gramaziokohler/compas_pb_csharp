@@ -2,16 +2,18 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-  <ItemGroup>
 
-    <!-- Test packages -->
-    <PackageVersion Include="Microsoft.NET.Test.SDK" Version="17.14.1" />
+  <ItemGroup>
+    <!-- Production packages -->
+    <PackageVersion Include="Google.Protobuf" Version="3.31.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Development and testing packages -->
+    <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.143" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.3" />
-
-    <!-- Main packages -->
-    <PackageVersion Include="Google.Protobuf" Version="3.31.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-
   </ItemGroup>
 </Project>

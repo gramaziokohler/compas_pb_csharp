@@ -7,22 +7,21 @@
     <WarningsAsErrors />
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    
+
     <!-- Package properties -->
     <Authors>Wei-Ting Chen</Authors>
-    <Company>gramaziokohler</Company>
+    <Company>Gramaziokohler</Company>
     <Copyright>Copyright © $(Authors) $([System.DateTime]::Now.Year)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/gramaziokohler/compas_pb_csharp</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    
-    <!-- Version information -->
-    <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix Condition="'$(Configuration)' == 'Debug'">dev</VersionSuffix>
+
   </PropertyGroup>
 
+  <!-- Development tools for ALL projects -->
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Test project specific settings -->
@@ -38,13 +37,14 @@
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    <IsPackable>false</IsPackable>
     </PackageReference>
   </ItemGroup>
 
   <!-- Example project settings -->
   <PropertyGroup Condition="$(MSBuildProjectName.Contains('Example')) OR $(MSBuildProjectName.Contains('UserCase'))">
-    <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+
 </Project>

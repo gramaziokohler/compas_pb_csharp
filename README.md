@@ -4,7 +4,7 @@
 ## Install
 
 ```sh
-dotnet add package Google.Protobuf --version 3.31.0
+dotnet restore
 dotnet build src/CompasPb
 ```
 

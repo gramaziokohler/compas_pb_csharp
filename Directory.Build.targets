@@ -1,0 +1,12 @@
+<Project>
+  <!-- Display version info before build -->
+  <Target Name="DisplayBuildInfo" BeforeTargets="BeforeBuild">
+    <Message Importance="high" Text="Building: $(MSBuildProjectName)" />
+    <Message Importance="high" Text="Version: $(Version)" />
+  </Target>
+
+  <!-- Validate package after creating it -->
+  <Target Name="ValidateNuGetPackage" AfterTargets="Pack">
+    <Message Importance="high" Text="Package created: $(PackageId).$(PackageVersion).nupkg" />
+  </Target>
+</Project>
