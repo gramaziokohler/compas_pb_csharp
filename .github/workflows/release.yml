@@ -1,0 +1,37 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        dotnet: ["8.0.x", "9.0.x"]
+
+    defaults:
+      run:
+        working-directory: src/CompasPb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: .Net Restore
+        run: dotnet restore
+
+      - name: .NET Build
+        run: dotnet build --no-restore
+
+      - name: .NET Format
+        run: dotnet format --verify-no-changes
