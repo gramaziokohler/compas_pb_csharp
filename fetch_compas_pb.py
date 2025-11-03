@@ -124,9 +124,8 @@ def fetch_assets(output_dir):
 if __name__ == "__main__":
     from pathlib import Path
     import shutil
-
     output_dir = Path(".") / "src" / "CompasPb" / "Generated"
-    if not output_dir.exists():
+    if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
