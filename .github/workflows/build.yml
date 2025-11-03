@@ -29,6 +29,14 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch comaps_pb_assets
+        run: python ../../fetch_compas_pb.py
+
       - name: .Net Restore
         run: dotnet restore
 
