@@ -11,8 +11,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        dotnet: ["8.0.x", "9.0.x"]
+        # os: [ubuntu-latest, windows-latest, macos-latest]
+        # dotnet: ["8.0.x", "9.0.x"]
+        os: [ windows-latest ]
+        dotnet: ["9.0.x"]
 
     defaults:
       run:
@@ -28,6 +30,14 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch comaps_pb_assets
+        run: python ../../fetch_compas_pb.py
 
       - name: .Net Restore
         run: dotnet restore

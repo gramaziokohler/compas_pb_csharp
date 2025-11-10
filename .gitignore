@@ -44,3 +44,6 @@ artifacts/
 # user
 *.bin
 *.sln
+
+# Generated files
+**/Generated/

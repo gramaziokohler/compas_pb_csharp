@@ -1,6 +1,6 @@
 using Xunit;
 
-public class DataHandlerTest
+public class SerializerTest
 {
     [Fact]
     public void TestHandler()
