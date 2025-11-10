@@ -96,27 +96,27 @@ def fetch_assets(output_dir):
 
     # Download the asset
     archive_path = output_dir / compas_asset["name"]
-    print(f"\nDownloading to: {archive_path}")
+    print(f"Downloading to: {archive_path}")
 
     try:
         urllib.request.urlretrieve(compas_asset["browser_download_url"], archive_path)
-        print("✓ Download complete")
+        print("Download complete")
     except Exception as e:
-        print(f"✗ Download failed: {e}")
+        print(f"Download failed: {e}")
         return False
 
     print("Extracting...")
     try:
         with zipfile.ZipFile(archive_path, "r") as zip_ref:
             zip_ref.extractall(output_dir)
-        print(f"✓ Extracted to: {output_dir}")
+        print(f"Extracted to: {output_dir}")
     except zipfile.BadZipFile:
         print("Failed to extract: Not a valid ZIP file")
         return False
 
-    print("\nCleaning up...")
+    print("Cleaning up...")
     archive_path.unlink()
-    print("✓ Temporary ZIP file removed")
+    print("Temporary ZIP file removed")
 
     return True
 
@@ -132,6 +132,6 @@ if __name__ == "__main__":
     success = fetch_assets(output_dir=output_dir)
 
     if success:
-        print("✓ Asset fetch completed successfully!")
+        print("Asset fetch completed successfully!")
     else:
-        print("✗ Asset fetch failed")
+        print("Asset fetch failed")
