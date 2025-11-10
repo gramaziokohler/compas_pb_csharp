@@ -10,7 +10,7 @@ namespace CompasPb.UserCase
     {
         private static void Main(string[] args)
         {
-            Console.WriteLine("Example");
+            Console.WriteLine("Example: ");
 
             // Pack Data
             List<object> nestedList = new List<object>()
@@ -63,10 +63,10 @@ namespace CompasPb.UserCase
                 Console.WriteLine($"Type: {item?.GetType()}");
             }
 
-            // Console.WriteLine("======= Unpacking Data with given type =======");
-            // var responesDataType = Deserializer.GetType(responsedMessage);
-            // var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
-            // Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
+            Console.WriteLine("======= Unpacking Data with given type =======");
+            var responesDataType = Deserializer.GetType(responsedMessage);
+            var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
+            Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
         }
     }
 }

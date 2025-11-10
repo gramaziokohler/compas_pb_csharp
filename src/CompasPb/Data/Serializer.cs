@@ -1,22 +1,23 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data
 {
-    using System;
-    using System.Collections;
-    using System.Collections.Generic;
-    using System.Linq;
-    using Google.Protobuf;
-    using Google.Protobuf.WellKnownTypes;
 
     public static class Serializer
     {
+        public const string CurrentVersion = "0.1.0";
         /// <summary>
         /// Packs the given object into a byte array.
         /// </summary>
         /// <returns></returns>
         public static byte[] PackAsBytes(AnyData data)
         {
-            MessageData messageData = new MessageData { Data = data };
+            MessageData messageData = new MessageData { Data = data, Version = CurrentVersion };
             byte[] dataBytes = messageData.ToByteArray();
             return dataBytes;
         }
@@ -34,7 +35,7 @@ namespace CompasPb.Data
                     "Object to pack cannot be null."),
 
                 // IMessage like FrameData, VectorData, ...
-                IMessage message => new AnyData { Data = Any.Pack(message) },
+                IMessage message => new AnyData { Message = Any.Pack(message) },
 
                 // List
                 IEnumerable items when obj is not string => PackAnyData(PackList(items)),
@@ -60,7 +61,30 @@ namespace CompasPb.Data
             }
 
             Any anyData = Any.Pack(obj);
-            return new AnyData { Data = anyData };
+            return new AnyData { Message = anyData };
+        }
+
+
+        private static AnyData PackPrimitiveData(object value)
+        {
+            if (value == null)
+            {
+                throw new ArgumentNullException(nameof(value), "Value to pack cannot be null.");
+            }
+
+            return value switch
+            {
+                int i => new AnyData { Value = Value.ForNumber(i) },
+                float f => new AnyData { Value = Value.ForNumber(f) },
+                double f => new AnyData { Value = Value.ForNumber(f) },
+                string s => new AnyData { Value = Value.ForString(s) },
+                bool b => new AnyData { Value = Value.ForBool(b) },
+                // Serialize byte arrays as Base64 strings, fina a better way.
+                byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)) },
+                byte byt => new AnyData { Value = Value.ForString(Convert.ToBase64String(new[] { byt })) },
+                null => new AnyData { Value = Value.ForNull() },
+                _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
+            };
         }
 
         private static ListData PackList(IEnumerable items)
@@ -74,7 +98,7 @@ namespace CompasPb.Data
             foreach (var item in items)
             {
                 var packedItem = PackAsAnyData(item);
-                listData.Data.Add(packedItem);
+                listData.Items.Add(packedItem);
             }
 
             return listData;
@@ -91,29 +115,10 @@ namespace CompasPb.Data
             foreach (var kvp in dict)
             {
                 var packedValue = PackAsAnyData(kvp.Value);
-                dictData.Data.Add(kvp.Key, packedValue);
+                dictData.Items.Add(kvp.Key, packedValue);
             }
 
             return dictData;
-        }
-
-        // Align with new update with COMPASPB python soon
-        private static PrimitiveData PackPrimitiveData(object value)
-        {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value), "Value to pack cannot be null.");
-            }
-
-            return value switch
-            {
-                int i => new PrimitiveData { Int = i },
-                float f => new PrimitiveData { Float = f },
-                string s => new PrimitiveData { Str = s },
-                bool b => new PrimitiveData { Bool = b },
-                byte byt => new PrimitiveData { Bytes = ByteString.CopyFrom(new byte[] { byt }) },
-                _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
-            };
         }
     }
 }
