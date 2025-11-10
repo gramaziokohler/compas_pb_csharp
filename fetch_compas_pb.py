@@ -77,22 +77,22 @@ def fetch_assets(output_dir):
     assets = release_data.get("assets", [])
 
     if not assets:
-        print("✗ No assets found in this release")
+        print("No assets found in this release")
         return False
 
     compas_asset, version = _find_compas_asset(assets)
 
     if not compas_asset:
-        print("✗ No compas_pb-generated-csharp ZIP file found")
-        print("\nAvailable assets:")
+        print("No compas_pb-generated-csharp ZIP file found")
+        print("Available assets:")
         for asset in assets:
             print(f"  - {asset['name']}")
         return False
 
     # Display asset information
-    print(f"\n✓ Found: {compas_asset['name']}")
-    print(f"  Version: {version}")
-    print(f"  Size: {compas_asset['size'] / 1024 / 1024:.2f} MB")
+    print(f"Found: {compas_asset['name']}")
+    print(f"Version: {version}")
+    print(f"Size: {compas_asset['size'] / 1024 / 1024:.2f} MB")
 
     # Download the asset
     archive_path = output_dir / compas_asset["name"]
