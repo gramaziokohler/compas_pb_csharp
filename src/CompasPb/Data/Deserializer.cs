@@ -1,12 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using CompasPb;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
-
-using DataHelper = CompasPb.Data.Helper;
 
 namespace CompasPb.Data
 {
@@ -147,7 +143,8 @@ namespace CompasPb.Data
 
             var value = data.Value;
             Console.WriteLine($"Unpacking PrimitiveData: {value}");
-            if (value == null) {
+            if (value == null)
+            {
                 return null;
             }
             return value.KindCase switch
