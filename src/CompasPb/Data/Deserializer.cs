@@ -1,12 +1,15 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using CompasPb;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
+
+using DataHelper = CompasPb.Data.Helper;
 
 namespace CompasPb.Data
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using Google.Protobuf;
-    using Google.Protobuf.WellKnownTypes;
-
     public static class Deserializer
     {
         /// <summary>
@@ -16,6 +19,7 @@ namespace CompasPb.Data
         public static AnyData UnpackBytes(byte[] data)
         {
             MessageData messageData = MessageData.Parser.ParseFrom(data);
+            GetVersion(messageData.Version);
             return messageData.Data;
         }
 
@@ -30,21 +34,37 @@ namespace CompasPb.Data
                 throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
             }
 
-            dataType ??= GetType(data);
-            if (dataType == null)
+            // Primitive type
+            if (data.Value != null)
             {
-                return null;
+                return UnpackPrimitiveData(data);
             }
 
-            return dataType.Name switch
+            if (data.Message != null)
             {
-                nameof(ListData) => UnpackListData(data),
-                nameof(DictData) => UnpackDictData(data),
-                _ when typeof(IMessage).IsAssignableFrom(dataType) => UnpackAs(data.Message, dataType),
+                dataType ??= GetType(data);
 
-                // Maybe some fallback handle as dictionary
-                _ => throw new ArgumentException($"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData."),
-            };
+                if (dataType == null)
+                {
+                    return null;
+                }
+
+                return dataType switch
+                {
+                    var t when t == typeof(ListData) => UnpackListData(data),
+                    var t when t == typeof(DictData) => UnpackDictData(data),
+                    // IMessage types
+                    _ when typeof(IMessage).IsAssignableFrom(dataType)
+                        && dataType != typeof(ListData)
+                        && dataType != typeof(DictData) => UnpackAs(data.Message, dataType),
+
+                    // Primitive types
+                    // _ when DataHelper.IsPrimitiveType(dataType) => UnpackPrimitiveData(data),
+                    // Maybe some fallback handle as dictionary
+                    _ => throw new ArgumentException($"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData."),
+                };
+            }
+            return null;
         }
 
         /// <summary>
@@ -78,7 +98,7 @@ namespace CompasPb.Data
             return Registry.GetType(typeUrl);
         }
 
-        private static List<object?> UnpackListData(AnyData data)
+        private static IEnumerable<object?> UnpackListData(AnyData data)
         {
             if (data == null)
             {
@@ -89,17 +109,15 @@ namespace CompasPb.Data
             {
                 throw new InvalidOperationException("Failed to unpack as ListData.");
             }
-
             var result = new List<object?>();
             foreach (var item in listData.Items)
             {
                 result.Add(UnpackAnyData(item));
             }
-
             return result;
         }
 
-        private static Dictionary<string, object?> UnpackDictData(AnyData data)
+        private static IDictionary<string, object?> UnpackDictData(AnyData data)
         {
             if (data == null)
             {
@@ -120,30 +138,27 @@ namespace CompasPb.Data
             return result;
         }
 
-        // private static object? UnpackPrimitiveData(AnyData data)
-        // {
-        //     if (data == null)
-        //     {
-        //         throw new ArgumentNullException(nameof(data), "PrimitiveData to unpack cannot be null.");
-        //     }
-        //
-        //     if (!data.Data.TryUnpack<PrimitiveData>(out PrimitiveData primitiveData))
-        //     {
-        //         throw new InvalidOperationException("Failed to unpack as PrimitiveData.");
-        //     }
-        //
-        //     return primitiveData.DataCase switch
-        //     {
-        //         AnyData.DataOneofCase.Value.Injjj
-        //         data .DataOneofCase.Int => primitiveData.Int,
-        //         PrimitiveData.DataOneofCase.Float => primitiveData.Float,
-        //         PrimitiveData.DataOneofCase.Str => primitiveData.Str,
-        //         PrimitiveData.DataOneofCase.Bool => primitiveData.Bool,
-        //         PrimitiveData.DataOneofCase.Bytes => primitiveData.Bytes.ToByteArray(),
-        //         PrimitiveData.DataOneofCase.None => null,
-        //         _ => throw new ArgumentException($"Unknown primitive data case: {primitiveData.DataCase}"),
-        //     };
-        // }
+        private static object? UnpackPrimitiveData(AnyData data)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException(nameof(data), "PrimitiveData to unpack cannot be null.");
+            }
+
+            var value = data.Value;
+            Console.WriteLine($"Unpacking PrimitiveData: {value}");
+            if (value == null) {
+                return null;
+            }
+            return value.KindCase switch
+            {
+                Value.KindOneofCase.NullValue => null,
+                Value.KindOneofCase.NumberValue => value.NumberValue,
+                Value.KindOneofCase.BoolValue => value.BoolValue,
+                Value.KindOneofCase.StringValue => value.StringValue,
+                _ => null,
+            };
+        }
 
         private static object? UnpackAs(Any anyData, System.Type targetType)
         {
@@ -180,5 +195,15 @@ namespace CompasPb.Data
 
             return null;
         }
+
+        private static void GetVersion(string version)
+        {
+            string currentVersion = PackageInfo.Version;
+            if (version != currentVersion)
+            {
+                Console.WriteLine($"Warning: Version mismatch. Data version: {version}, Current version: {currentVersion}");
+            }
+        }
     }
+
 }

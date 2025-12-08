@@ -1,11 +1,11 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using Google.Protobuf;
 
 namespace CompasPb.Data
 {
-    using System;
-    using System.Collections.Concurrent;
-    using System.Collections.Generic;
-    using System.Linq;
-    using Google.Protobuf;
 
     public static class Registry
     {

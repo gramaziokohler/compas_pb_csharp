@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using CompasPb;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -10,45 +11,42 @@ namespace CompasPb.Data
 
     public static class Serializer
     {
-        public const string CurrentVersion = "0.1.0";
+        public static string CurrentVersion = PackageInfo.Version;
+
         /// <summary>
         /// Packs the given object into a byte array.
         /// </summary>
         /// <returns></returns>
         public static byte[] PackAsBytes(AnyData data)
         {
-            MessageData messageData = new MessageData { Data = data, Version = CurrentVersion };
+            var messageData = new MessageData { Data = data, Version = CurrentVersion };
             byte[] dataBytes = messageData.ToByteArray();
             return dataBytes;
         }
-
         /// <summary>
         /// Packs the given object into an AnyData.
         /// </summary>
         /// <returns></returns>
-        public static AnyData PackAsAnyData(object obj)
+        public static AnyData PackAsAnyData(object? obj)
         {
+            if (obj is null)
+            {
+                return new AnyData { Value = Value.ForNull() };
+            }
             return obj switch
             {
-                null => throw new ArgumentNullException(
-                    nameof(obj),
-                    "Object to pack cannot be null."),
-
-                // IMessage like FrameData, VectorData, ...
+                // IMessage (FrameData, VectorData, ...)
                 IMessage message => new AnyData { Message = Any.Pack(message) },
-
-                // List
-                IEnumerable items when obj is not string => PackAnyData(PackList(items)),
-
                 // Dictionary
-                IEnumerable<KeyValuePair<string, object>> dict when obj is not string =>
-                    PackAnyData(PackDict(dict.ToDictionary(kv => kv.Key, kv => kv.Value))),
-
+                IDictionary dict => PackAnyData(PackDict(dict)),
+                // List/ Array
+                IEnumerable items when obj is not string && obj is not IDictionary => PackAnyData(PackList(items)),
                 // Primitive types
-                int or float or string or bool or byte => PackAnyData(PackPrimitiveData(obj)),
+                _ when Helper.IsPrimitiveType(obj) => PackPrimitiveData(obj),
 
-                _ => throw new ArgumentException(
-                    $"Unsupported type: {obj.GetType()}. Supported types are IMessage, IEnumerable, Dictionary, and primitive types."),
+                _ => throw new ArgumentNullException(
+                    $"Unsupported type: {obj.GetType()}" +
+                    $"Supported types are IMessage, IEnumerable, Dictionary, and primitive types."),
             };
         }
 
@@ -64,28 +62,26 @@ namespace CompasPb.Data
             return new AnyData { Message = anyData };
         }
 
-
         private static AnyData PackPrimitiveData(object value)
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value), "Value to pack cannot be null.");
-            }
-
             return value switch
             {
+                null => new AnyData { Value = Value.ForNull() },
                 int i => new AnyData { Value = Value.ForNumber(i) },
                 float f => new AnyData { Value = Value.ForNumber(f) },
-                double f => new AnyData { Value = Value.ForNumber(f) },
+                double d => new AnyData { Value = Value.ForNumber(d) },
+                long l => new AnyData { Value = Value.ForNumber(l) },
+                decimal m => new AnyData { Value = Value.ForNumber((double)m) },
                 string s => new AnyData { Value = Value.ForString(s) },
                 bool b => new AnyData { Value = Value.ForBool(b) },
+
                 // Serialize byte arrays as Base64 strings, fina a better way.
                 byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)) },
                 byte byt => new AnyData { Value = Value.ForString(Convert.ToBase64String(new[] { byt })) },
-                null => new AnyData { Value = Value.ForNull() },
                 _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
             };
         }
+
 
         private static ListData PackList(IEnumerable items)
         {
@@ -104,7 +100,7 @@ namespace CompasPb.Data
             return listData;
         }
 
-        private static DictData PackDict(Dictionary<string, object> dict)
+        private static DictData PackDict(IDictionary dict)
         {
             if (dict == null)
             {
@@ -112,12 +108,20 @@ namespace CompasPb.Data
             }
 
             var dictData = new DictData();
-            foreach (var kvp in dict)
+            foreach (DictionaryEntry entry in dict)
             {
-                var packedValue = PackAsAnyData(kvp.Value);
-                dictData.Items.Add(kvp.Key, packedValue);
-            }
+                if (entry.Key is null)
+                {
 
+                    throw new ArgumentNullException("Dictionary key cannot be null.");
+                }
+                else
+                {
+                    string key = entry.Key.ToString()!;
+                    var packedValue = PackAsAnyData(entry.Value);
+                    dictData.Items.Add(key, packedValue);
+                }
+            }
             return dictData;
         }
     }
