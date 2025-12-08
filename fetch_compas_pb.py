@@ -38,7 +38,10 @@ def _get_release_info(owner: str, repo: str, version: str):
             info = json.loads(response.read().decode())
         # Write version to file
         release_version = info["tag_name"].lstrip("v")
-        _create_version_file(release_version, Path(".") / "Resources")
+        output_dir = Path(".") / "resources"
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
+        _create_version_file(release_version, output_dir)
 
         return info
     except urllib.error.HTTPError as e:
