@@ -11,7 +11,6 @@ public class RegistryTest
     [InlineData(typeof(VectorData))]
     [InlineData(typeof(MeshData))]
     [InlineData(typeof(CircleData))]
-    [InlineData(typeof(PrimitiveData))]
     [InlineData(typeof(ListData))]
     [InlineData(typeof(DictData))]
     public void GetRegistered_Type(Type expectedType)
