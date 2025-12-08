@@ -1,4 +1,3 @@
-
 namespace CompasPb.UserCase
 {
     using System;
@@ -13,9 +12,19 @@ namespace CompasPb.UserCase
             Console.WriteLine("Example: ");
 
             // Pack Data
-            List<object> nestedList = new List<object>()
+            var nestedList = new List<object>()
             {
                 new List<int> { 1, 2, 3 },
+                new Dictionary<string, object>
+                {
+                    { "key1", 123 },
+                    { "key2", "value2" },
+                },
+                1,
+                "I am a string",
+                true,
+                3.14F,
+
                 new FrameData
                 {
                     Guid = Guid.NewGuid().ToString(),
@@ -40,6 +49,7 @@ namespace CompasPb.UserCase
                     },
                 },
             };
+
             var packData = Serializer.PackAsBytes(Serializer.PackAsAnyData(nestedList));
             Console.WriteLine($"Packed data: {packData}");
 
@@ -57,16 +67,22 @@ namespace CompasPb.UserCase
 
             Console.WriteLine("======= Unpacking Data without given type =======");
             var unpacked = Deserializer.UnpackAnyData(responsedMessage);
-            foreach (var item in unpacked as IEnumerable<object>)
+            if (unpacked is List<object> unpackedList)
             {
-                Console.WriteLine($"Item: {item}; Type: {item?.GetType()}");
-                Console.WriteLine($"Type: {item?.GetType()}");
+                foreach (var item in unpackedList)
+                {
+                    Console.WriteLine($" - {item} (Type: {item?.GetType()})");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Unpacked data: {unpacked} (Type: {unpacked?.GetType()})");
             }
 
-            Console.WriteLine("======= Unpacking Data with given type =======");
-            var responesDataType = Deserializer.GetType(responsedMessage);
-            var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
-            Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
+            // Console.WriteLine("======= Unpacking Data with given type =======");
+            // var responesDataType = Deserializer.GetType(responsedMessage);
+            // var unpackedGivenType = Deserializer.Unpack<ListData>(responsedMessage);
+            // Console.WriteLine($"Unpacked {responesDataType} : {unpackedGivenType}");
         }
     }
 }
