@@ -1,16 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.1;net8.0;net9.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <AssemblyName>CompasPb</AssemblyName>
     <RootNamespace>CompasPb</RootNamespace>
-
     <!-- Package metadata -->
     <PackageId>CompasPb</PackageId>
     <Description> A COMPAS extension which lets you serialize and deserialize COMPAS Data types using protobuf.</Description>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Google.Protobuf"/>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="System.Text.Json"/>
   </ItemGroup>
 </Project>

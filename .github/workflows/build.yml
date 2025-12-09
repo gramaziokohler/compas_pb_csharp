@@ -14,7 +14,7 @@ jobs:
         # os: [ubuntu-latest, windows-latest, macos-latest]
         # dotnet: ["8.0.x", "9.0.x"]
         os: [ windows-latest ]
-        dotnet: ["9.0.x"]
+        dotnet: ["9.0.x", "netstandard2.1"]
 
     defaults:
       run:
