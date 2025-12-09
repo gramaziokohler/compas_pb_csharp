@@ -35,10 +35,28 @@ def _get_release_info(owner: str, repo: str, version: str):
 
     try:
         with urllib.request.urlopen(api_url) as response:
-            return json.loads(response.read().decode())
+            info = json.loads(response.read().decode())
+        # Write version to file
+        release_version = info["tag_name"].lstrip("v")
+        output_dir = Path(".") / "resources"
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
+        _create_version_file(release_version, output_dir)
+
+        return info
     except urllib.error.HTTPError as e:
         print(f"Error fetching release info: {e.code} - {e.reason}")
         raise
+
+
+def _create_version_file(version: str, output_dir: Path):
+    package_info = {
+        "name": "compas_pb",
+        "version": version,
+    }
+    version_file_path = Path(output_dir) / "COMPAS_PB_VERSION.json"
+    with open(version_file_path, "w") as f:
+        json.dump(package_info, f, indent=4)
 
 
 def _find_compas_asset(assets):
@@ -124,6 +142,7 @@ def fetch_assets(output_dir):
 if __name__ == "__main__":
     from pathlib import Path
     import shutil
+
     output_dir = Path(".") / "src" / "CompasPb" / "Generated"
     if output_dir.exists():
         shutil.rmtree(output_dir)

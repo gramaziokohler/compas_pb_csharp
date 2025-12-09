@@ -1,11 +1,10 @@
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
 
 namespace CompasPb.Route
 {
-    using System;
-    using System.Net.Http;
-    using System.Net.Http.Headers;
-    using System.Threading.Tasks;
-
     public class RouteHttpClient
     {
         private readonly HttpClient httpClient;
@@ -13,7 +12,7 @@ namespace CompasPb.Route
 
         public RouteHttpClient(string serverUrl)
         {
-            this.httpClient = new HttpClient();
+            httpClient = new HttpClient();
             this.serverUrl = serverUrl ?? throw new ArgumentNullException(nameof(serverUrl));
             Console.WriteLine($"HttpClient initialized with server URL: {this.serverUrl}");
         }
@@ -23,7 +22,7 @@ namespace CompasPb.Route
         {
             try
             {
-                var response = await this.httpClient.GetAsync(this.serverUrl);
+                var response = await httpClient.GetAsync(serverUrl);
                 bool isSuccess = response.IsSuccessStatusCode;
                 if (isSuccess)
                 {
@@ -51,10 +50,10 @@ namespace CompasPb.Route
 
         public async Task<byte[]?> GetData()
         {
-            string url = $"{this.serverUrl}/sender";
+            string url = $"{serverUrl}/sender";
             try
             {
-                using (var response = await this.httpClient.GetAsync(url))
+                using (var response = await httpClient.GetAsync(url))
                 {
                     if (response.IsSuccessStatusCode)
                     {
@@ -77,13 +76,13 @@ namespace CompasPb.Route
 
         public async Task PostData(byte[] data)
         {
-            string url = $"{this.serverUrl}/receiver";
+            string url = $"{serverUrl}/receiver";
             try
             {
                 using (var content = new ByteArrayContent(data))
                 {
                     content.Headers.ContentType = new MediaTypeHeaderValue("application/x-protobuf");
-                    var response = await this.httpClient.PostAsync(url, content);
+                    var response = await httpClient.PostAsync(url, content);
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -106,7 +105,7 @@ namespace CompasPb.Route
         // Dispose method to clean up resources
         public void Dispose()
         {
-            this.httpClient?.Dispose();
+            httpClient?.Dispose();
         }
     }
 }
