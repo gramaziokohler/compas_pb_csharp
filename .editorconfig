@@ -1,7 +1,7 @@
 root = true
 
 [*]
-end_of_line = if
+end_of_line = lf
 insert_final_newline = true
 
 [*.{cs,csx}]
@@ -11,24 +11,34 @@ indent_size = 4
 trim_trailing_whitespace = true
 charset = utf-8
 insert_final_newline = true
-trim_trailing_whitespace = true
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
+
+# Remove unnecessary usings
 dotnet_diagnostic.IDE0005.severity = warning
+# Using directive is unnecessary
+dotnet_diagnostic.CS0105.severity = error
+
+# Using directive placement - OUTSIDE namespace
+csharp_using_directive_placement = outside_namespace:error
+
+# File header preferences (if you use file headers)
+file_header_template = unset
 
 # Naming: Interfaces must start with I
 dotnet_naming_rule.interfaces_should_be_prefixed_with_i.severity = warning
 # Private fields start with underscore
 dotnet_naming_rule.private_fields_should_start_with_underscore.severity = warning
+
 # Use var when type is obvious
 csharp_style_var_when_type_is_apparent = true:suggestion
 # Prefer braces
 csharp_prefer_braces = true:warning
 
+# Prevent duplicate usings
+dotnet_analyzer_diagnostic.category-Style.severity = warning
+
 # Configurable behaviors
-end_of_line = lf
-indent_style = space
-indent_size = 4
 max_line_length = 100
 
 [*.{config,csproj,props,slnx,targets,xaml,xml}]
