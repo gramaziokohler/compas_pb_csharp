@@ -1,9 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using CompasPb.Data;
+
 namespace CompasPb.UserCase
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using CompasPb.Data;
 
     internal class Program
     {
@@ -21,10 +22,6 @@ namespace CompasPb.UserCase
                     { "key2", "value2" },
                 },
                 1,
-                "I am a string",
-                true,
-                3.14F,
-
                 new FrameData
                 {
                     Guid = Guid.NewGuid().ToString(),
@@ -63,7 +60,7 @@ namespace CompasPb.UserCase
 
             // Unpack data
             byte[] response = File.ReadAllBytes(filePath);
-            var responsedMessage = Deserializer.UnpackBytes(response);
+            AnyData responsedMessage = Deserializer.UnpackBytes(response);
 
             Console.WriteLine("======= Unpacking Data without given type =======");
             var unpacked = Deserializer.UnpackAnyData(responsedMessage);
