@@ -11,10 +11,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [ubuntu-latest, windows-latest, macos-latest]
-        # dotnet: ["8.0.x", "9.0.x"]
-        os: [ windows-latest ]
-        dotnet: ["9.0.x", "netstandard2.1"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        dotnet: ["9.0.x"]
 
     defaults:
       run:
@@ -40,10 +38,22 @@ jobs:
         run: python ../../fetch_compas_pb.py
 
       - name: .Net Restore
-        run: dotnet restore
+        run: dotnet restor
 
       - name: .NET Build
         run: dotnet build --no-restore
 
+      # - name: .NET Test
+      #   run: dotnet test --no-build --berbosity normal
+
       - name: .NET Format
         run: dotnet format --verify-no-changes
+
+      - name: Upload build artifacts
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            src/CompasPb/bin/Debug/netstandard2.1/*.dll
+            retention-days:1
