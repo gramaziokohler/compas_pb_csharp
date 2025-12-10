@@ -11,9 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [ubuntu-latest, windows-latest, macos-latest]
-        # dotnet: ["8.0.x", "9.0.x"]
-        os: [ windows-latest ]
+        os: [ windows-latest, macos-latest ]
         dotnet: ["9.0.x"]
 
     defaults:
@@ -36,14 +34,27 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch comaps_pb_assets
+      - name: Fetch compas_pb_assets
         run: python ../../fetch_compas_pb.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: .Net Restore
         run: dotnet restore
 
       - name: .NET Build
-        run: dotnet build --no-restore
+        run: dotnet build --configuration Release --no-restore
+
+      # add the test when it is ready
+      # - name: .NET Test
+      #   run: dotnet test --no-build --berbosity normal
 
       - name: .NET Format
         run: dotnet format --verify-no-changes
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CompasPb-CSharp-Artifact-${{ matrix.os }}
+          path: src/CompasPb/bin/Release/netstandard2.1/
+          retention-days: 1
