@@ -2,15 +2,34 @@ name: release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
+    branches:
+      - "test/**"
+      - "add-action-release-and-net-build"
+
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: "Run in test mode"
+        required: false
+        default: "true"
+
+permissions:
+  contents: write
+
 jobs:
-  build:
+  publish:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        dotnet: ["8.0.x", "9.0.x"]
+        os: [windows-latest, macos-latest]
+        dotnet: ["9.0.x"]
+        framework: [net9.0]
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-x64
 
     defaults:
       run:
@@ -27,11 +46,72 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch compas_pb_assets
+        run: python ../../fetch_compas_pb.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: .Net Restore
         run: dotnet restore
 
-      - name: .NET Build
-        run: dotnet build --no-restore
+      - name: .NET Publish (${{ matrix.os }})
+        shell: bash
+        run: |
+          OUTPUT_PATH="${{ github.workspace }}/release_artifacts/${{ matrix.os }}/${{ matrix.framework }}"
+          PROJECT_FILE="${{ github.workspace }}/src/CompasPb/CompasPb.csproj"
 
-      - name: .NET Format
-        run: dotnet format --verify-no-changes
+          echo "Publishing project: $PROJECT_FILE"
+          echo "Publishing to output path: $OUTPUT_PATH"
+
+          dotnet publish "$PROJECT_FILE" -c Release \
+            --self-contained true \
+            -r ${{ matrix.rid }} \
+            -f ${{ matrix.framework }} \
+            -o "$OUTPUT_PATH"
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compas-pb-dist-${{ matrix.os }}-${{ matrix.framework }}
+          path: ${{ github.workspace }}/release_artifacts/${{ matrix.os }}/${{ matrix.framework }}
+          if-no-files-found: error
+
+  release:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all published artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-assets
+
+      - name: Clean up and Zip Assets
+        run: |
+          cd ./release-assets
+          for dir in compas-pb-dist-*; do
+              if [ -d "$dir" ]; then
+                  Cleaned_Name=$(echo "$dir" | sed 's/compas-pb-dist-//g')
+
+                  Zip_Name="compas-pb-${Cleaned_Name}.zip"
+
+                  echo "Processing artifact: $dir -> $Zip_Name"
+
+                  mv "$dir" "$Cleaned_Name"
+
+                  zip -r "$Zip_Name" "$Cleaned_Name"
+                  rm -rf "$Cleaned_Name"
+              fi
+          done
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./release-assets/*.zip
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
