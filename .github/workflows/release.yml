@@ -3,8 +3,6 @@ name: release
 on:
   push:
     tags: ["v*"]
-    branches:
-      - "test/**"
 
   workflow_dispatch:
     inputs:
