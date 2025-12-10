@@ -41,8 +41,9 @@ def _get_release_info(owner: str, repo: str, version: str):
         req.add_header("Authorization", f"token {github_token}")
 
     try:
-        with urllib.request.urlopen(api_url) as response:
+        with urllib.request.urlopen(req) as response:
             info = json.loads(response.read().decode())
+
         # Write version to file
         release_version = info["tag_name"].lstrip("v")
         output_dir = Path(".") / "resources"
