@@ -9,6 +9,7 @@ import json
 import zipfile
 import re
 from pathlib import Path
+import os
 
 
 compas_pb_version = "latest"
@@ -32,6 +33,12 @@ def _get_release_info(owner: str, repo: str, version: str):
         api_url = (
             f"https://api.github.com/repos/{owner}/{repo}/releases/tags/v{version}"
         )
+
+    github_token = os.getenv("GITHUB_TOKEN")
+    req = urllib.request.Request(api_url)
+
+    if github_token:
+        req.add_header("Authorization", f"token {github_token}")
 
     try:
         with urllib.request.urlopen(api_url) as response:
