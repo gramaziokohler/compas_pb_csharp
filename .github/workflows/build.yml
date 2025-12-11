@@ -47,10 +47,8 @@ jobs:
 
       - name: .NET Test
         run: |
-          cd ${{ github.workspace }}/tests
-          echo "${{ github.workspace }}/tests"
           dotnet test --no-build --verbosity normal
-        working-directory: ${{ github.workspace }}
+        # working-directory: tests
 
       - name: .NET Format
         run: dotnet format --verify-no-changes
