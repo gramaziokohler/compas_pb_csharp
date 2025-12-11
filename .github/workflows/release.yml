@@ -43,6 +43,14 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
+      - name: Determine Version with NBGV
+        uses: dotnet/nbgv@master
+        id: nbgv
+
+      - name: Display Calculated Version
+        run: |
+          echo "Calculated Version: ${{ steps.nbgv.outputs.SemVer2 }}"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -65,24 +73,40 @@ jobs:
           echo "Publishing project: $PROJECT_FILE"
           echo "Publishing to output path: $OUTPUT_PATH"
 
+          # Publish
           dotnet publish "$PROJECT_FILE" -c Release \
             --self-contained true \
             -r ${{ matrix.rid }} \
             -f ${{ matrix.framework }} \
             -o "$OUTPUT_PATH"
 
+          # Get Version
+          VERSION_TAG=${{ steps.nbgv.outputs.SemVer2 }}
+          FINAL_ARTIFACT_NAME="compas-pb-csharp-${{ matrix.os }}-${{ matrix.framework }}-${VERSION_TAG}"
+
+          echo "Renaming artifact directory to: $FINAL_ARTIFACT_NAME"
+          mv "$OUTPUT_PATH" "${{ github.workspace }}/release_artifacts/$FINAL_ARTIFACT_NAME"
+
+          # Pass the new name to the next step
+          echo "FINAL_ARTIFACT_NAME=$FINAL_ARTIFACT_NAME" >> $GITHUB_ENV
+
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: compas-pb-dist-${{ matrix.os }}-${{ matrix.framework }}
+          name: compas-pb-csharp-${{ matrix.os }}-${{ matrix.framework }}
           path: ${{ github.workspace }}/release_artifacts/${{ matrix.os }}/${{ matrix.framework }}
           if-no-files-found: error
 
-  release:
+release:
     needs: [publish]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+
     steps:
+      - name: Determine Version from Tag
+        uses: dotnet/nbgv@master
+        id: nbgv_release
+
       - name: Download all published artifacts
         uses: actions/download-artifact@v4
         with:
@@ -90,12 +114,15 @@ jobs:
 
       - name: Clean up and Zip Assets
         run: |
+          VERSION_TAG=${{ steps.nbgv_release.outputs.SemVer2 }}
+          echo "Using Tag Version: $VERSION_TAG"
           cd ./release-assets
-          for dir in compas-pb-dist-*; do
-              if [ -d "$dir" ]; then
-                  Cleaned_Name=$(echo "$dir" | sed 's/compas-pb-dist-//g')
 
-                  Zip_Name="compas-pb-${Cleaned_Name}.zip"
+          for dir in compas-pb-csharp-*-${VERSION_TAG}; do
+              if [ -d "$dir" ]; then
+                  Cleaned_Name=$(echo "$dir" | sed "s/compas-pb-csharp-//g")
+
+                  Zip_Name="compas-pb-${VERSION_TAG}-${Cleaned_Name}.zip"
 
                   echo "Processing artifact: $dir -> $Zip_Name"
 
@@ -110,5 +137,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ./release-assets/*.zip
-          name: Release ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           generate_release_notes: true

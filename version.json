@@ -1,12 +1,26 @@
+
+// version.json
 {
+  "$schema": "https://raw.githubusercontent.com/dotnet/Nerdbank.GitVersioning/master/src/NerdBank.GitVersioning/version.schema.json",
+  // 1. Base Version (MAJOR.MINOR)
   "version": "0.1.0",
+  // 2. Control Release Tagging
+  // This tells NBGV that commits with a Git tag matching this pattern
+  // should produce a clean version (e.g., "1.1.0") without the commit hash suffix.
   "publicReleaseRefSpec": [
     "^refs/heads/main$",
-    "^refs/tags/v\\d+\\.\\d+"
+    "^refs/tags/v\\d+\\.\\d+\\.\\d+$",
+    "^refs/tags/\\d+\\.\\d+\\.\\d+$" // Match tags like 1.1.0
   ],
   "cloudBuild": {
     "buildNumber": {
       "enabled": true
     }
-  }
+  },
+
+  // 3. Version Part Generation
+  // Set the revision to 'git-tag-version' to use the 4th part as the
+  // git height (commit count) since the last version change.
+  "versionHeightOffset": 0,
+  "gitCommitIdShortAutoMinimum": 8
 }
