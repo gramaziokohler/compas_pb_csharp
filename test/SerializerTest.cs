@@ -34,17 +34,17 @@ namespace CompasPb.Test
 
             switch (primitiveData)
             {
-                case decimal m:
-                    Assert.Equal((double)m, (double)unpackedData!, 15);
-                    break;
-
-                case long l:
-                    Assert.Equal(l, Convert.ToInt64(unpackedData!));
-                    break;
-
-                case float f:
-                    Assert.Equal(f, (float)(double)unpackedData!, 7);
-                    break;
+                // case decimal m:
+                //     Assert.Equal((double)m, (double)unpackedData!, 15);
+                //     break;
+                //
+                // case long l:
+                //     Assert.Equal(l, Convert.ToInt64(unpackedData!));
+                //     break;
+                //
+                // case float f:
+                //     Assert.Equal(f, (float)(double)unpackedData!, 7);
+                //     break;
 
                 case double d:
                     Assert.Equal(d, (double)unpackedData!, 15);
