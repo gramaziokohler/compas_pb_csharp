@@ -147,16 +147,41 @@ namespace CompasPb.Data
             {
                 return null;
             }
-            return value.KindCase switch
+            switch (value.KindCase)
             {
-                Value.KindOneofCase.NullValue => null,
-                Value.KindOneofCase.NumberValue => value.NumberValue,
-                Value.KindOneofCase.BoolValue => value.BoolValue,
-                Value.KindOneofCase.StringValue => value.StringValue,
-                _ => null,
-            };
+                case Value.KindOneofCase.NullValue:
+                    return null;
+                case Value.KindOneofCase.BoolValue:
+                    return value.BoolValue;
+                case Value.KindOneofCase.NumberValue:
+                    var rawNumber = value.NumberValue;
+                    if (rawNumber % 1.0 == 0.0 && rawNumber >= int.MinValue && rawNumber <= int.MaxValue)
+                    {
+                        return (int)rawNumber;
+                    }
+                    else
+                    {
+                        return rawNumber;
+                    }
+                case Value.KindOneofCase.StringValue:
+                    string base64String = value.StringValue;
+                    try
+                    {
+                        byte[] bytes = Convert.FromBase64String(base64String);
+                        if (bytes.Length == 1)
+                        {
+                            return bytes[0];
+                        }
+                        return bytes;
+                    }
+                    catch (FormatException)
+                    {
+                        return base64String;
+                    }
+                default:
+                    return null;
+            }
         }
-
         private static object? UnpackAs(Any anyData, System.Type targetType)
         {
             if (anyData == null || targetType == null)

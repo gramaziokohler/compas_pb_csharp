@@ -64,17 +64,21 @@ namespace CompasPb.Data
             return value switch
             {
                 null => new AnyData { Value = Value.ForNull() },
+
                 int i => new AnyData { Value = Value.ForNumber(i) },
                 float f => new AnyData { Value = Value.ForNumber(f) },
                 double d => new AnyData { Value = Value.ForNumber(d) },
                 long l => new AnyData { Value = Value.ForNumber(l) },
                 decimal m => new AnyData { Value = Value.ForNumber((double)m) },
+
                 string s => new AnyData { Value = Value.ForString(s) },
                 bool b => new AnyData { Value = Value.ForBool(b) },
 
                 // Serialize byte arrays as Base64 strings, fina a better way.
                 byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)) },
                 byte byt => new AnyData { Value = Value.ForString(Convert.ToBase64String(new[] { byt })) },
+
+                // Default Case
                 _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
             };
         }
