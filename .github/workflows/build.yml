@@ -46,8 +46,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: .NET Test
-        run: |
-          dotnet test --no-build --verbosity normal
+        run: dotnet test tests/CompasPb.csproj --no-build --verbosity normal
 
       - name: .NET Format
         run: dotnet format --verify-no-changes
