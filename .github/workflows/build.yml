@@ -45,9 +45,9 @@ jobs:
       - name: .NET Build
         run: dotnet build --configuration Release --no-restore
 
-      # add the test when it is ready
-      # - name: .NET Test
-      #   run: dotnet test --no-build --berbosity normal
+      - name: .NET Test
+        run: dotnet test --no-build --verbosity normal
+        working-directory: $ {{ github.workspace }}/tests
 
       - name: .NET Format
         run: dotnet format --verify-no-changes
