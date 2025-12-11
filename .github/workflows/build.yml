@@ -46,9 +46,9 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: .NET Test
+        working-directory: tests
         run: |
           dotnet test --no-build --verbosity normal
-        # working-directory: tests
 
       - name: .NET Format
         run: dotnet format --verify-no-changes
