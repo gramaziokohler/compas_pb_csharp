@@ -46,8 +46,11 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: .NET Test
-        run: dotnet test --no-build --verbosity normal
-        working-directory: $ {{ github.workspace }}/tests
+        run: |
+          cd ${{ github.workspace }}/tests
+          echo "${{ github.workspace }}/tests"
+          dotnet test --no-build --verbosity normal
+        working-directory: ${{ github.workspace }}
 
       - name: .NET Format
         run: dotnet format --verify-no-changes
