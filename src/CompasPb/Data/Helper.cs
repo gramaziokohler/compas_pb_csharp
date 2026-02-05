@@ -5,7 +5,6 @@ namespace CompasPb.Data
 {
     public static class Helper
     {
-
         private static readonly HashSet<Type> PrimitiveTypes = new()
         {
             typeof(int),
@@ -16,7 +15,7 @@ namespace CompasPb.Data
             typeof(string),
             typeof(bool),
             typeof(byte),
-            typeof(byte[])
+            typeof(byte[]),
         };
 
         public static bool IsPrimitiveType(object obj)

@@ -5,7 +5,6 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data
 {
-
     public static class Serializer
     {
         public static string CurrentVersion = PackageInfo.Version;
@@ -20,6 +19,7 @@ namespace CompasPb.Data
             byte[] dataBytes = messageData.ToByteArray();
             return dataBytes;
         }
+
         /// <summary>
         /// Packs the given object into an AnyData.
         /// </summary>
@@ -37,13 +37,16 @@ namespace CompasPb.Data
                 // Dictionary
                 IDictionary dict => PackAnyData(PackDict(dict)),
                 // List/ Array
-                IEnumerable items when obj is not string && obj is not IDictionary => PackAnyData(PackList(items)),
+                IEnumerable items when obj is not string && obj is not IDictionary => PackAnyData(
+                    PackList(items)
+                ),
                 // Primitive types
                 _ when Helper.IsPrimitiveType(obj) => PackPrimitiveData(obj),
 
                 _ => throw new ArgumentNullException(
-                    $"Unsupported type: {obj.GetType()}" +
-                    $"Supported types are IMessage, IEnumerable, Dictionary, and primitive types."),
+                    $"Unsupported type: {obj.GetType()}"
+                        + $"Supported types are IMessage, IEnumerable, Dictionary, and primitive types."
+                ),
             };
         }
 
@@ -73,12 +76,17 @@ namespace CompasPb.Data
                 bool b => new AnyData { Value = Value.ForBool(b) },
 
                 // Serialize byte arrays as Base64 strings, fina a better way.
-                byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)) },
-                byte byt => new AnyData { Value = Value.ForString(Convert.ToBase64String(new[] { byt })) },
+                byte[] bytes => new AnyData
+                {
+                    Value = Value.ForString(Convert.ToBase64String(bytes)),
+                },
+                byte byt => new AnyData
+                {
+                    Value = Value.ForString(Convert.ToBase64String(new[] { byt })),
+                },
                 _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
             };
         }
-
 
         private static ListData PackList(IEnumerable items)
         {
@@ -109,7 +117,6 @@ namespace CompasPb.Data
             {
                 if (entry.Key is null)
                 {
-
                     throw new ArgumentNullException("Dictionary key cannot be null.");
                 }
                 else

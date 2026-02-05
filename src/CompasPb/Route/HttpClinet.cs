@@ -31,7 +31,8 @@ namespace CompasPb.Route
                 else
                 {
                     Console.WriteLine(
-                        $"Failed to connect to the server. Status code: {response.StatusCode}");
+                        $"Failed to connect to the server. Status code: {response.StatusCode}"
+                    );
                 }
             }
             catch (HttpRequestException e) // Fixed: HttpRequestException instead of HttpIOException
@@ -81,7 +82,9 @@ namespace CompasPb.Route
             {
                 using (var content = new ByteArrayContent(data))
                 {
-                    content.Headers.ContentType = new MediaTypeHeaderValue("application/x-protobuf");
+                    content.Headers.ContentType = new MediaTypeHeaderValue(
+                        "application/x-protobuf"
+                    );
                     var response = await httpClient.PostAsync(url, content);
 
                     if (response.IsSuccessStatusCode)

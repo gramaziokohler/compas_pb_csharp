@@ -5,7 +5,6 @@ using CompasPb.Data;
 
 namespace CompasPb.UserCase
 {
-
     internal class Program
     {
         private static void Main(string[] args)
@@ -16,11 +15,7 @@ namespace CompasPb.UserCase
             var nestedList = new List<object>()
             {
                 new List<int> { 1, 2, 3 },
-                new Dictionary<string, object>
-                {
-                    { "key1", 123 },
-                    { "key2", "value2" },
-                },
+                new Dictionary<string, object> { { "key1", 123 }, { "key2", "value2" } },
                 1,
                 new FrameData
                 {

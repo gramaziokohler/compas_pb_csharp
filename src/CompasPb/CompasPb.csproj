@@ -1,17 +1,36 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;net8.0;net9.0</TargetFrameworks>
-    <Nullable>enable</Nullable>
-    <AssemblyName>CompasPb</AssemblyName>
-    <RootNamespace>CompasPb</RootNamespace>
-    <!-- Package metadata -->
-    <PackageId>CompasPb</PackageId>
-    <Description> A COMPAS extension which lets you serialize and deserialize COMPAS Data types using protobuf.</Description>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Google.Protobuf"/>
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-    <PackageReference Include="System.Text.Json"/>
-  </ItemGroup>
+    <PropertyGroup Label="Target Frameworks">
+        <TargetFrameworks>netstandard2.0;net48;net9.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Assembly Configuration">
+        <AssemblyName>CompasPb</AssemblyName>
+        <RootNamespace>CompasPb</RootNamespace>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Package Metadata">
+        <PackageId>CompasPb</PackageId>
+        <Title>COMPAS Protobuf for C#</Title>
+        <Description>A COMPAS extension which lets you serialize and deserialize COMPAS Data types using Protocol Buffers.</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Production Dependencies">
+        <PackageReference Include="Google.Protobuf" />
+    </ItemGroup>
+
+    <!-- System.Text.Json for older frameworks that don't have it built-in -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+        <PackageReference Include="System.Text.Json" />
+    </ItemGroup>
+
+    <!-- Additional packages for net48 -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+        <PackageReference Include="System.Net.Http" />
+        <PackageReference Include="System.Text.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Build Tools">
+        <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="All" />
+    </ItemGroup>
 </Project>

@@ -6,7 +6,6 @@ using Google.Protobuf;
 
 namespace CompasPb.Data
 {
-
     public static class Registry
     {
         // thead-safe dictionary to store registered types
@@ -32,11 +31,9 @@ namespace CompasPb.Data
         private static void RegisterAllTypes()
         {
             // register all IMessage types in the assembly
-            var types = typeof(Registry).Assembly
-                .GetTypes()
-                .Where(t => typeof(IMessage).IsAssignableFrom(t)
-                            && !t.IsAbstract
-                            && t.IsClass);
+            var types = typeof(Registry)
+                .Assembly.GetTypes()
+                .Where(t => typeof(IMessage).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass);
 
             foreach (var type in types)
             {
@@ -76,8 +73,9 @@ namespace CompasPb.Data
             }
 
             // Fallback: search by simple type name or full name
-            return ProtoRegistry.Values
-                .FirstOrDefault(t => t.Name == simpleName || t.FullName == typeUrl);
+            return ProtoRegistry.Values.FirstOrDefault(t =>
+                t.Name == simpleName || t.FullName == typeUrl
+            );
         }
 
         private static void RegisterType<T>()

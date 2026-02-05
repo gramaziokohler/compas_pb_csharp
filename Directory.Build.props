@@ -1,50 +1,64 @@
 <Project>
-  <!-- Global properties for all projects -->
-  <PropertyGroup>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- Global compiler settings -->
+    <PropertyGroup Label="Compiler Configuration">
+        <TargetFrameworks>netstandard2.0;net48;net9.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <WarningsAsErrors />
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+    </PropertyGroup>
 
-    <!-- Package properties -->
-    <Authors>Wei-Ting Chen</Authors>
-    <Company>Gramaziokohler</Company>
-    <Copyright>Copyright © $(Authors) $([System.DateTime]::Now.Year)</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/gramaziokohler/compas_pb_csharp</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
+    <!-- Package metadata -->
+    <PropertyGroup Label="Package Information">
+        <Authors>Wei-Ting Chen</Authors>
+        <Company>Gramaziokohler</Company>
+        <Copyright>Copyright © $(Authors) $([System.DateTime]::Now.Year)</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/gramaziokohler/compas_pb_csharp</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/gramaziokohler/compas_pb_csharp</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageTags>compas;protobuf;serialization;architecture</PackageTags>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
 
-  </PropertyGroup>
+    <!-- Versioning with dev suffix for Debug builds -->
+    <PropertyGroup Label="Versioning">
+        <Version>$(GitVersion_NuGetVersion)</Version>
+        <AssemblyVersion>$(GitVersion_AssemblySemVer)</AssemblyVersion>
+        <FileVersion>$(GitVersion_MajorMinorPatch)</FileVersion>
+        <InformationalVersion>$(GitVersion_InformationalVersion)</InformationalVersion>
+        <!-- Add -dev suffix for Debug configuration packages -->
+        <VersionSuffix Condition="'$(Configuration)' == 'Debug' AND '$(VersionSuffix)' == ''"
+            >dev</VersionSuffix
+        >
+    </PropertyGroup>
 
-  <!-- Development tools for ALL projects -->
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
-  </ItemGroup>
+    <!-- Code analysis -->
+    <PropertyGroup Label="Code Analysis">
+        <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    </PropertyGroup>
 
-  <!-- Test project specific settings -->
-  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
-    <IsPackable>false</IsPackable>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
-  </PropertyGroup>
+    <!-- Test project settings -->
+    <PropertyGroup Condition="'$(IsTestProject)' == 'true'" Label="Test Project Settings">
+        <IsPackable>false</IsPackable>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    </PropertyGroup>
 
-  <!-- Test project package references -->
-  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit"/>
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    <IsPackable>false</IsPackable>
-    </PackageReference>
-  </ItemGroup>
-
-  <!-- Example project settings -->
-  <PropertyGroup Condition="$(MSBuildProjectName.Contains('Example')) OR $(MSBuildProjectName.Contains('UserCase'))">
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <OutputType>Exe</OutputType>
-  </PropertyGroup>
-
+    <!-- Example project settings -->
+    <PropertyGroup
+        Condition="$(MSBuildProjectName.Contains('Example')) OR $(MSBuildProjectName.Contains('UserCase'))"
+        Label="Example Project Settings"
+    >
+        <IsPackable>false</IsPackable>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
 </Project>

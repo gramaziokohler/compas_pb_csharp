@@ -1,4 +1,3 @@
-
 namespace CompasPb.HttpExample
 {
     using System;

@@ -51,13 +51,15 @@ namespace CompasPb.Data
                     var t when t == typeof(DictData) => UnpackDictData(data),
                     // IMessage types
                     _ when typeof(IMessage).IsAssignableFrom(dataType)
-                        && dataType != typeof(ListData)
-                        && dataType != typeof(DictData) => UnpackAs(data.Message, dataType),
+                            && dataType != typeof(ListData)
+                            && dataType != typeof(DictData) => UnpackAs(data.Message, dataType),
 
                     // Primitive types
                     // _ when DataHelper.IsPrimitiveType(dataType) => UnpackPrimitiveData(data),
                     // Maybe some fallback handle as dictionary
-                    _ => throw new ArgumentException($"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData."),
+                    _ => throw new ArgumentException(
+                        $"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData."
+                    ),
                 };
             }
             return null;
@@ -138,7 +140,10 @@ namespace CompasPb.Data
         {
             if (data == null)
             {
-                throw new ArgumentNullException(nameof(data), "PrimitiveData to unpack cannot be null.");
+                throw new ArgumentNullException(
+                    nameof(data),
+                    "PrimitiveData to unpack cannot be null."
+                );
             }
 
             var value = data.Value;
@@ -166,12 +171,14 @@ namespace CompasPb.Data
 
             try
             {
-                var method = typeof(Any).GetMethods()
-                  .FirstOrDefault(m =>
-                    m.Name == "TryUnpack" &&
-                    m.IsGenericMethodDefinition &&
-                    m.GetParameters().Length == 1)
-                  ?.MakeGenericMethod(targetType); // create a generic method for the target type
+                var method = typeof(Any)
+                    .GetMethods()
+                    .FirstOrDefault(m =>
+                        m.Name == "TryUnpack"
+                        && m.IsGenericMethodDefinition
+                        && m.GetParameters().Length == 1
+                    )
+                    ?.MakeGenericMethod(targetType); // create a generic method for the target type
 
                 if (method == null)
                 {
@@ -198,9 +205,10 @@ namespace CompasPb.Data
             string currentVersion = PackageInfo.Version;
             if (version != currentVersion)
             {
-                Console.WriteLine($"Warning: Version mismatch. Data version: {version}, Current version: {currentVersion}");
+                Console.WriteLine(
+                    $"Warning: Version mismatch. Data version: {version}, Current version: {currentVersion}"
+                );
             }
         }
     }
-
 }
