@@ -16,9 +16,7 @@
 
     <ItemGroup Label="Production Dependencies">
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Newtonsoft.Json"/>
-
-
+        <PackageReference Include="Newtonsoft.Json" />
     </ItemGroup>
 
     <!-- Additional packages for net48 -->
