@@ -16,17 +16,14 @@
 
     <ItemGroup Label="Production Dependencies">
         <PackageReference Include="Google.Protobuf" />
-    </ItemGroup>
+        <PackageReference Include="Newtonsoft.Json"/>
 
-    <!-- System.Text.Json for older frameworks that don't have it built-in -->
-    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-        <PackageReference Include="System.Text.Json" />
+
     </ItemGroup>
 
     <!-- Additional packages for net48 -->
     <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
         <PackageReference Include="System.Net.Http" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
 
     <ItemGroup Label="Build Tools">

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 
 namespace CompasPb;
 
@@ -23,22 +23,22 @@ public static class PackageInfo
 
     static PackageInfo()
     {
-        string filePath = Path.Combine(
-            Directory.GetCurrentDirectory(),
-            "Resources",
-            "COMPAS_PB_VERSION.json"
-        );
-
+        string currentDir = Directory.GetCurrentDirectory();
+        string filePath = Path.Combine(currentDir, "Resources", "COMPAS_PB_VERSION.json");
         if (File.Exists(filePath))
         {
-            var content = File.ReadAllText(filePath);
-            var data = JsonSerializer.Deserialize<Dictionary<string, string>>(content);
-            CompasPbVersion =
-                data != null && data.TryGetValue("version", out var version) ? version : "unknown";
+            string content = File.ReadAllText(filePath);
+            var data = JObject.Parse(content).ToObject<Dictionary<string, string>>();
+            if (data != null && data.ContainsKey("version"))
+            {
+                Version = data["version"];
+                return;
+            }
+            Version = "unknown";
         }
         else
         {
-            CompasPbVersion = "unknown";
+            Version = "unknown";
         }
     }
 }
