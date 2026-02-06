@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 
 namespace CompasPb
 {
@@ -15,7 +15,7 @@ namespace CompasPb
             if (File.Exists(filePath))
             {
                 string content = File.ReadAllText(filePath);
-                var data = JsonSerializer.Deserialize<Dictionary<string, string>>(content);
+                var data = JObject.Parse(content).ToObject<Dictionary<string, string>>();
                 if (data != null && data.ContainsKey("version"))
                 {
                     Version = data["version"];
