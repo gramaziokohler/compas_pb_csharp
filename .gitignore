@@ -43,6 +43,7 @@ artifacts/
 
 # user
 *.bin
+*.slnx
 *.sln
 
 # IDE
