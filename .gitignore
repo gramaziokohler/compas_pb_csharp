@@ -43,7 +43,22 @@ artifacts/
 
 # user
 *.bin
+*.slnx
 *.sln
+
+# IDE
+.vs/
+.idea/
+
+# System files
+.DS_Store
+
+# python build outputs
+**/dist/
+**/build/
+**/*.egg-info/
+
 
 # Generated files
 **/Generated/
+__pycache__/
