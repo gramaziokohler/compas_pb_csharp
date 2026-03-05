@@ -3,112 +3,107 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
-namespace CompasPb.Route
+namespace CompasPb.Route;
+
+public class RouteHttpClient
 {
-    public class RouteHttpClient
+    private readonly HttpClient _httpClient;
+    private readonly string serverUrl;
+
+    public RouteHttpClient(string serverUrl)
     {
-        private readonly HttpClient httpClient;
-        private readonly string serverUrl;
-
-        public RouteHttpClient(string serverUrl)
+        _httpClient = new HttpClient();
+        this.serverUrl = serverUrl ?? throw new ArgumentNullException(nameof(serverUrl));
+        Console.WriteLine($"HttpClient initialized with server URL: {this.serverUrl}");
+    }
+    // Test the connection to the server
+    public async Task TestConnection()
+    {
+        try
         {
-            httpClient = new HttpClient();
-            this.serverUrl = serverUrl ?? throw new ArgumentNullException(nameof(serverUrl));
-            Console.WriteLine($"HttpClient initialized with server URL: {this.serverUrl}");
-        }
-
-        // Test the connection to the server
-        public async Task TestConnection()
-        {
-            try
+            var response = await _httpClient.GetAsync(serverUrl);
+            bool isSuccess = response.IsSuccessStatusCode;
+            if (isSuccess)
             {
-                var response = await httpClient.GetAsync(serverUrl);
-                bool isSuccess = response.IsSuccessStatusCode;
-                if (isSuccess)
+                Console.WriteLine($"Response status: {response.StatusCode}");
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"Failed to connect to the server. Status code: {response.StatusCode}");
+            }
+        }
+        catch (HttpRequestException e) // Fixed: HttpRequestException instead of HttpIOException
+        {
+            Console.WriteLine($"HTTP request error: {e.Message}");
+        }
+        catch (TaskCanceledException e)
+        {
+            Console.WriteLine($"Request timeout: {e.Message}");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"An unexpected error occurred: {e.Message}");
+        }
+    }
+
+    public async Task<byte[]?> GetData()
+    {
+        string url = $"{serverUrl}/sender";
+        try
+        {
+            using (var response = await _httpClient.GetAsync(url))
+            {
+                if (response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"Response status: {response.StatusCode}");
+                    byte[] responseContent = await response.Content.ReadAsByteArrayAsync();
+                    return responseContent;
                 }
                 else
                 {
-                    Console.WriteLine(
-                        $"Failed to connect to the server. Status code: {response.StatusCode}"
-                    );
+                    Console.WriteLine($"Error response: {response.StatusCode}");
+                    return null;
                 }
             }
-            catch (HttpRequestException e) // Fixed: HttpRequestException instead of HttpIOException
-            {
-                Console.WriteLine($"HTTP request error: {e.Message}");
-            }
-            catch (TaskCanceledException e)
-            {
-                Console.WriteLine($"Request timeout: {e.Message}");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"An unexpected error occurred: {e.Message}");
-            }
         }
-
-        public async Task<byte[]?> GetData()
+        catch (Exception e)
         {
-            string url = $"{serverUrl}/sender";
-            try
+            Console.WriteLine($"An error occurred while getting data: {e.Message}");
+            return null;
+        }
+    }
+
+    public async Task PostData(byte[] data)
+    {
+        string url = $"{serverUrl}/receiver";
+        try
+        {
+            using (var content = new ByteArrayContent(data))
             {
-                using (var response = await httpClient.GetAsync(url))
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/x-protobuf");
+                var response = await _httpClient.PostAsync(url, content);
+
+                if (response.IsSuccessStatusCode)
                 {
-                    if (response.IsSuccessStatusCode)
-                    {
-                        byte[] responseContent = await response.Content.ReadAsByteArrayAsync();
-                        return responseContent;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Error response: {response.StatusCode}");
-                        return null;
-                    }
+                    string responseContent = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine("Data posted successfully.");
                 }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"An error occurred while getting data: {e.Message}");
-                return null;
-            }
-        }
-
-        public async Task PostData(byte[] data)
-        {
-            string url = $"{serverUrl}/receiver";
-            try
-            {
-                using (var content = new ByteArrayContent(data))
+                else
                 {
-                    content.Headers.ContentType = new MediaTypeHeaderValue(
-                        "application/x-protobuf"
-                    );
-                    var response = await httpClient.PostAsync(url, content);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string responseContent = await response.Content.ReadAsStringAsync();
-                        Console.WriteLine("Data posted successfully.");
-                    }
-                    else
-                    {
-                        string errorContent = await response.Content.ReadAsStringAsync();
-                        Console.WriteLine($"Error response: {errorContent}");
-                    }
+                    string errorContent = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Error response: {errorContent}");
                 }
             }
-            catch (Exception e)
-            {
-                Console.WriteLine($"An error occurred while posting data: {e.Message}");
-            }
         }
-
-        // Dispose method to clean up resources
-        public void Dispose()
+        catch (Exception e)
         {
-            httpClient?.Dispose();
+            Console.WriteLine($"An error occurred while posting data: {e.Message}");
         }
+    }
+
+    // Dispose method to clean up resources
+    public void Dispose()
+    {
+        _httpClient?.Dispose();
     }
 }

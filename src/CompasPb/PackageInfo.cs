@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -7,22 +8,14 @@ namespace CompasPb;
 
 public static class PackageInfo
 {
-    /// <summary>
-    /// C# library version (from assembly)
-    /// </summary>
-    public static readonly string Version =
-        typeof(PackageInfo)
-            .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion
-        ?? "unknown";
+    public static readonly string Version;
 
     /// <summary>
     /// COMPAS_PB (Python) version from external JSON file
     /// </summary>
-    public static readonly string CompasPbVersion;
-
     static PackageInfo()
     {
+        Version? assembly = Assembly.GetExecutingAssembly().GetName().Version;
         string currentDir = Directory.GetCurrentDirectory();
         string filePath = Path.Combine(currentDir, "Resources", "COMPAS_PB_VERSION.json");
         if (File.Exists(filePath))
@@ -34,6 +27,7 @@ public static class PackageInfo
                 Version = data["version"];
                 return;
             }
+
             Version = "unknown";
         }
         else

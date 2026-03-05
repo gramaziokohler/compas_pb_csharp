@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>disable</ImplicitUsings>
         <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
         <WarningsAsErrors />
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>$(NoWarn);CS1591</NoWarn>
