@@ -116,7 +116,7 @@ public static class Serializer
             else
             {
                 string key = entry.Key.ToString()!;
-                var packedValue = PackAsAnyData(entry.Value);
+                AnyData packedValue = PackAsAnyData(entry.Value);
                 dictData.Items.Add(key, packedValue);
             }
         }

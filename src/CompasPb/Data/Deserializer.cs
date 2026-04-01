@@ -96,7 +96,7 @@ public static class Deserializer
         return Registry.GetType(typeUrl);
     }
 
-    private static IEnumerable<object?> UnpackListData(AnyData data)
+    private static List<object?> UnpackListData(AnyData data)
     {
         if (data == null)
         {
@@ -108,6 +108,7 @@ public static class Deserializer
             throw new InvalidOperationException("Failed to unpack as ListData.");
         }
 
+
         var result = new List<object?>();
         foreach (var item in listData.Items)
         {
@@ -117,7 +118,7 @@ public static class Deserializer
         return result;
     }
 
-    private static IDictionary<string, object?> UnpackDictData(AnyData data)
+    private static Dictionary<string, object?> UnpackDictData(AnyData data)
     {
         if (data == null)
         {
