@@ -1,5 +1,6 @@
 # IDE
 .vs
+.idea/
 
 # Build directories - ignore all bin and obj folders anywhere
 **/bin/
