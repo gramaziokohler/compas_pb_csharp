@@ -7,7 +7,7 @@ namespace CompasPb.Data;
 
 public static class Serializer
 {
-    public static string CurrentVersion = PackageInfo.Version;
+    public static readonly string CurrentVersion = PackageInfo.Version;
 
     /// <summary>
     /// Packs the given object into a byte array.
@@ -92,7 +92,7 @@ public static class Serializer
         var listData = new ListData();
         foreach (var item in items)
         {
-            var packedItem = PackAsAnyData(item);
+            AnyData packedItem = PackAsAnyData(item);
             listData.Items.Add(packedItem);
         }
 
@@ -103,7 +103,7 @@ public static class Serializer
     {
         if (dict == null)
         {
-            throw new ArgumentNullException(nameof(dict), "Dictionary to pack cannot be null.");
+            throw new ArgumentException($"Dictionary cannot be null. {nameof(dict)}");
         }
 
         var dictData = new DictData();
@@ -111,7 +111,7 @@ public static class Serializer
         {
             if (entry.Key is null)
             {
-                throw new ArgumentNullException("Dictionary key cannot be null.");
+                throw new ArgumentException($"Dictionary key cannot be null. {nameof(entry.Key)}");
             }
             else
             {
