@@ -1,10 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <IsTestProject>true</IsTestProject>
-    <ParallelizeTestCollections>false</ParallelizeTestCollections>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../src/CompasPb/CompasPb.csproj" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <IsTestProject>true</IsTestProject>
+        <ParallelizeTestCollections>false</ParallelizeTestCollections>
+    </PropertyGroup>
+
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../src/CompasPb/CompasPb.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Test Dependencies">
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit" />
+        <PackageReference
+            Include="xunit.runner.visualstudio"
+            PrivateAssets="all"
+            IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive"
+        />
+        <PackageReference
+            Include="coverlet.collector"
+            PrivateAssets="all"
+            IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive"
+        />
+    </ItemGroup>
 </Project>

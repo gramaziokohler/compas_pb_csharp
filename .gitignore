@@ -1,3 +1,7 @@
+# IDE
+.vs
+.idea/
+
 # Build directories - ignore all bin and obj folders anywhere
 **/bin/
 **/obj/
@@ -43,22 +47,29 @@ artifacts/
 
 # user
 *.bin
-*.slnx
-*.sln
-
-# IDE
-.vs/
-.idea/
-
-# System files
-.DS_Store
-
-# python build outputs
-**/dist/
-**/build/
-**/*.egg-info/
-
 
 # Generated files
 **/Generated/
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
