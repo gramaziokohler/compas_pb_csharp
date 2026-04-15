@@ -29,17 +29,13 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
-    <!-- Versioning with dev suffix for Debug builds -->
-    <PropertyGroup Label="Versioning">
-        <Version>$(GitVersion_NuGetVersion)</Version>
-        <AssemblyVersion>$(GitVersion_AssemblySemVer)</AssemblyVersion>
-        <FileVersion>$(GitVersion_MajorMinorPatch)</FileVersion>
-        <InformationalVersion>$(GitVersion_InformationalVersion)</InformationalVersion>
-        <!-- Add -dev suffix for Debug configuration packages -->
-        <VersionSuffix Condition="'$(Configuration)' == 'Debug' AND '$(VersionSuffix)' == ''"
-            >dev</VersionSuffix
-        >
-    </PropertyGroup>
+    <!-- Versioning: Nerdbank.GitVersioning populates Version / AssemblyVersion / -->
+    <!-- FileVersion / InformationalVersion automatically from version.json. -->
+    <!-- Condition skips legacy packages.config projects. -->
+    <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"
+                          Condition="!Exists('packages.config')" />
+    </ItemGroup>
 
     <!-- Code analysis -->
     <PropertyGroup Label="Code Analysis">
