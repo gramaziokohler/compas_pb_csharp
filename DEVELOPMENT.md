@@ -2,22 +2,19 @@
 
 ## Versioning & Releases
 
-This repo uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (nbgv) to stamp every build with a version derived from `version.json` + git history.
+This repo uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (nbgv) to stamp every build with a version derived from `version.json`.
 
 ### Scheme
 
 Standard SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.1.0`, `0.1.1`, `0.2.0`, `1.0.0`).
 
-- `MAJOR.MINOR` — set in `version.json` (field `version`, e.g. `"0.1"`).
-- `PATCH` — auto-advanced by **version height** (commits on `main` since the `version` field was last changed).
-
-So on `main`: `0.1.0` → `0.1.1` → `0.1.2` → … each merge bumps patch automatically. No action needed.
+The full version is set explicitly in `version.json` (field `version`, e.g. `"0.1.0"`). Commits **do not** auto-bump the version — the version only changes when `version.json` is edited and merged. Releases are deliberate.
 
 ### Files
 
 | File | Role |
 |---|---|
-| `version.json` | Source of truth. `"version": "0.1"` sets `MAJOR.MINOR`. |
+| `version.json` | Source of truth. `"version": "0.1.0"` sets the full `MAJOR.MINOR.PATCH`. |
 | `Directory.Build.props` | Adds `Nerdbank.GitVersioning` `PackageReference` to every project. |
 | `Directory.Packages.props` | Pins `Nerdbank.GitVersioning` version (central package management). |
 | `.github/workflows/release.yml` | Fires on `v*` tag push — builds, publishes, zips artifacts, creates GitHub Release. |
@@ -30,53 +27,43 @@ Install the nbgv CLI globally (once per machine):
 dotnet tool install --global nbgv
 ```
 
-Check what the current version is:
+Check the current version:
 
 ```bash
 nbgv get-version
-# Version:             0.1.3.xxxx
-# NuGetPackageVersion: 0.1.3
+# Version:             0.1.0.nnnn
+# NuGetPackageVersion: 0.1.0
 ```
 
 ---
 
 ## How to release
 
-### Patch release (`0.1.x`)
+Every release is a two-step process: bump `version.json` in a PR, then tag after merge.
 
-Patch increments happen automatically on every merge to `main`. You only tag when you want to ship an official release — you don't have to tag every merge.
-
-```bash
-git checkout main && git pull
-
-# Verify the version you're about to tag
-nbgv get-version
-
-# Create the tag at HEAD (nbgv picks the right name, e.g. v0.1.3)
-nbgv tag
-
-# Push the tag — this triggers release.yml
-git push origin v0.1.3
-```
-
-### Minor release (`0.1.x` → `0.2.0`)
+### Patch release (`0.1.0` → `0.1.1`)
 
 1. Open a PR editing `version.json`:
    ```diff
-   - "version": "0.1",
-   + "version": "0.2",
+   - "version": "0.1.0",
+   + "version": "0.1.1",
    ```
-2. Merge to `main`. Patch resets to `0`, so `main` is now at `0.2.0`.
+2. Merge to `main`.
 3. Tag and push:
    ```bash
    git checkout main && git pull
-   nbgv tag                 # creates v0.2.0
-   git push origin v0.2.0
+   git tag v0.1.1
+   git push origin v0.1.1
    ```
+   Pushing the tag triggers `release.yml`.
 
-### Major release (`0.x` → `1.0.0`)
+### Minor release (`0.1.x` → `0.2.0`)
 
-Same flow as minor: edit `version.json` → `"1.0"`, merge, `nbgv tag`, push tag.
+Same flow: edit `version.json` to `"0.2.0"`, merge, tag `v0.2.0`, push tag.
+
+### Major release (`0.x.x` → `1.0.0`)
+
+Same flow: edit `version.json` to `"1.0.0"`, merge, tag `v1.0.0`, push tag.
 
 ### Quick reference
 
@@ -84,9 +71,8 @@ Same flow as minor: edit `version.json` → `"1.0"`, merge, `nbgv tag`, push tag
 |---|---|
 | Show current version | `nbgv get-version` |
 | Show NuGet version only | `nbgv get-version -v NuGetPackageVersion` |
-| Create release tag at HEAD | `nbgv tag` |
-| Push tag (fires release workflow) | `git push origin <tag>` |
-| Bump minor/major | Edit `version.json`, merge PR |
+| Tag a release | `git tag v<version> && git push origin v<version>` |
+| Bump version | Edit `version.json`, open PR, merge |
 
 ---
 
@@ -96,13 +82,13 @@ nbgv populates these MSBuild properties automatically (readable from any `.cspro
 
 | Property | Example |
 |---|---|
-| `$(Version)` | `0.1.3` |
-| `$(AssemblyVersion)` | `0.1.3.0` |
-| `$(FileVersion)` | `0.1.3.nnnn` |
-| `$(PackageVersion)` | `0.1.3` |
-| `$(InformationalVersion)` | `0.1.3+abc1234` |
+| `$(Version)` | `0.1.0` |
+| `$(AssemblyVersion)` | `0.1.0.0` |
+| `$(FileVersion)` | `0.1.0.nnnn` |
+| `$(PackageVersion)` | `0.1.0` |
+| `$(InformationalVersion)` | `0.1.0+abc1234` |
 
-On non-public branches (anything other than `main` or a `v*` tag), the NuGet/Informational versions get a `-g<sha>` suffix (e.g. `0.1.3-g19a641360c`). This is controlled by `publicReleaseRefSpec` in `version.json`.
+On non-public branches (anything other than `main` or a `v*` tag), the NuGet/Informational versions get a `-g<sha>` suffix (e.g. `0.1.0-gd9f645a810`). This is controlled by `publicReleaseRefSpec` in `version.json`.
 
 From code:
 
