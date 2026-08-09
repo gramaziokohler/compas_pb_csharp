@@ -13,6 +13,11 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
         dotnet: ["9.0.x"]
+        framework: [netstandard2.0, net9.0]
+        include:
+          - os: windows-latest
+            dotnet: "9.0.x"
+            framework: net48
 
     defaults:
       run:
@@ -52,15 +57,15 @@ jobs:
         run: csharpier check .
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore -f ${{ matrix.framework }}
 
       - name: Test
         working-directory: ${{ github.workspace }}
-        run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal
+        run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal -f ${{ matrix.framework }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CompasPb-CSharp-Artifact-${{ matrix.os }}
-          path: src/CompasPb/bin/Release/
+          name: CompasPb-CSharp-Artifact-${{ matrix.os }}-${{ matrix.framework }}
+          path: src/CompasPb/bin/Release/${{ matrix.framework }}/
           retention-days: 1

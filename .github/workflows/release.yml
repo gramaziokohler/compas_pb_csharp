@@ -5,11 +5,40 @@ on:
     branches:
       - main
 
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
 permissions:
   contents: write
 
 jobs:
+  # ── Bump: manually triggered to create a release branch ──
+  bump:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version
+        uses: ./.github/actions/bump
+        with:
+          bump: ${{ inputs.bump }}
+
+  # ── Release: fires on push to main ──
   check-release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       is_release: ${{ steps.check.outputs.is_release }}
@@ -157,8 +186,55 @@ jobs:
           path: ${{ github.workspace }}/release_artifacts/${{ matrix.os }}/${{ matrix.framework }}
           if-no-files-found: error
 
+  nuget-publish:
+    needs: [check-release, build-and-test]
+    if: needs.check-release.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/CompasPb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch compas_pb assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python ../../fetch_compas_pb.py
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Pack
+        run: |
+          dotnet pack CompasPb.csproj \
+            --configuration Release \
+            --no-restore \
+            -o ${{ github.workspace }}/nupkg
+
+      - name: Push to NuGet.org
+        run: |
+          dotnet nuget push "${{ github.workspace }}/nupkg/*.nupkg" \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
   release:
-    needs: [check-release, publish]
+    needs: [check-release, publish, nuget-publish]
     if: needs.check-release.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     steps:
