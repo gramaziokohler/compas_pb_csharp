@@ -33,8 +33,11 @@
     <!-- FileVersion / InformationalVersion automatically from version.json. -->
     <!-- Condition skips legacy packages.config projects. -->
     <ItemGroup>
-        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"
-                          Condition="!Exists('packages.config')" />
+        <PackageReference
+            Include="Nerdbank.GitVersioning"
+            PrivateAssets="all"
+            Condition="!Exists('packages.config')"
+        />
     </ItemGroup>
 
     <!-- Code analysis -->
