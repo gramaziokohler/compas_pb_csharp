@@ -102,9 +102,42 @@ Edit `version.json` on `main` before running `nbgv prepare-release`:
 When a `release/**` branch merges into `main`, `release.yml` automatically:
 
 1. Checks `CHANGELOG.md` has a versioned `## [x.y.z]` entry — **fails** if only `## [Unreleased]` is present
-2. Runs format check, build, and tests
-3. Creates tag `v{version}` from the changelog entry
-4. Publishes artifacts and creates the GitHub Release with `CHANGELOG.md` as release notes
+2. Runs format check, build, and tests across `netstandard2.0`, `net48` (Windows only), `net9.0`
+3. Publishes NuGet package to [nuget.org](https://www.nuget.org/packages/CompasPb) (requires `NUGET_API_KEY` secret)
+4. Publishes self-contained binaries for Windows (`win-x64`) and macOS (`osx-x64`)
+5. Creates tag `v{version}` from the changelog entry
+6. Creates GitHub Release with zipped binaries and `CHANGELOG.md` as release notes
+
+---
+
+## NuGet publishing
+
+### First-time setup
+
+1. Create an API key on [nuget.org](https://www.nuget.org/account/apikeys) scoped to the `CompasPb` package
+2. Add it to the repo: **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `NUGET_API_KEY`
+   - Value: the key from nuget.org
+
+### What gets packed
+
+`dotnet pack` produces two files in the `nupkg/` folder:
+
+| File | Contents |
+|---|---|
+| `CompasPb.{version}.nupkg` | Library DLLs for `netstandard2.0`, `net48`, `net9.0` + README |
+| `CompasPb.{version}.snupkg` | PDB symbols for source-stepping |
+
+Both are pushed to nuget.org automatically on release merge.
+
+### Local pack (dry-run)
+
+```bash
+cd src/CompasPb
+dotnet pack --configuration Release -o /tmp/nupkg
+# inspect contents
+unzip -l /tmp/nupkg/CompasPb.*.nupkg
+```
 
 ---
 
@@ -143,6 +176,6 @@ On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`)
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `build.yml` | Push / PR to `main` | Format check, build, test |
-| `bump.yml` | Manual dispatch | Run `nbgv prepare-release` and push release branch |
-| `release.yml` | Push to `main` from `release/**` merge | Tag, publish artifacts, create GitHub Release |
+| `build.yml` | Push / PR to `main` | Format check, build all TFMs, test on `net9.0` |
+| `release.yml` (manual dispatch) | Manual — choose bump type | Runs `nbgv prepare-release`, pushes `release/v*` branch |
+| `release.yml` (push to `main`) | Merge of `release/**` → `main` | Checks changelog, builds, tests, packs NuGet, publishes binaries, tags, creates GitHub Release |
