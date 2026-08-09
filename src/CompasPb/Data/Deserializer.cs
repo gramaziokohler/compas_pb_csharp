@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -46,7 +45,8 @@ public static class Deserializer
     /// Unpacks the given AnyData into an object of type T.
     /// </summary>
     /// <returns></returns>
-    public static T? Unpack<T>(AnyData data) where T : class, IMessage<T>, new()
+    public static T? Unpack<T>(AnyData data)
+        where T : class, IMessage<T>, new()
     {
         if (data == null)
         {
@@ -147,35 +147,7 @@ public static class Deserializer
             return null;
         }
 
-        try
-        {
-            var method = typeof(Any)
-                .GetMethods()
-                .FirstOrDefault(m =>
-                    m.Name == "TryUnpack"
-                    && m.IsGenericMethodDefinition
-                    && m.GetParameters().Length == 1
-                )
-                ?.MakeGenericMethod(targetType); // create a generic method for the target type
-
-            if (method == null)
-            {
-                return null;
-            }
-
-            var parameters = new object?[] { null };
-            var result = method.Invoke(anyData, parameters);
-            if (result is bool success && success)
-            {
-                return parameters[0];
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to unpack {targetType.Name}: {ex.Message}");
-        }
-
-        return null;
+        return Registry.UnpackAs(anyData, targetType);
     }
 
     private static void GetVersion(string version)
