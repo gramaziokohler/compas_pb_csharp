@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFrameworks>net9.0;net48</TargetFrameworks>
         <IsTestProject>true</IsTestProject>
         <ParallelizeTestCollections>false</ParallelizeTestCollections>
     </PropertyGroup>

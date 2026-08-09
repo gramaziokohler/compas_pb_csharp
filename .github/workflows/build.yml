@@ -60,6 +60,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore -f ${{ matrix.framework }}
 
       - name: Test
+        if: matrix.framework == 'net9.0' || (matrix.framework == 'net48' && matrix.os == 'windows-latest')
         working-directory: ${{ github.workspace }}
         run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal -f ${{ matrix.framework }}
 
