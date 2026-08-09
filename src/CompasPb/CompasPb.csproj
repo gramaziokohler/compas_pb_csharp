@@ -30,6 +30,10 @@
         </EmbeddedResource>
     </ItemGroup>
 
+    <ItemGroup Label="Package Files">
+        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
     <ItemGroup Label="Build Tools">
         <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     </ItemGroup>
