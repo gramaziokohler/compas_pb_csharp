@@ -2,98 +2,107 @@
 
 ## Versioning & Releases
 
-This repo uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (nbgv) to stamp every build with a version derived from `version.json`.
+This repo uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (`nbgv`) to stamp every build with a version derived from `version.json` and git history.
 
 ### Scheme
 
-Standard SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.1.0`, `0.1.1`, `0.2.0`, `1.0.0`).
-
-The full version is set explicitly in `version.json` (field `version`, e.g. `"0.1.0"`). Commits **do not** auto-bump the version — the version only changes when `version.json` is edited and merged. Releases are deliberate.
-
-### Files
-
-| File | Role |
-|---|---|
-| `version.json` | Source of truth. `"version": "0.1.0"` sets the full `MAJOR.MINOR.PATCH`. |
-| `Directory.Build.props` | Adds `Nerdbank.GitVersioning` `PackageReference` to every project. |
-| `Directory.Packages.props` | Pins `Nerdbank.GitVersioning` version (central package management). |
-| `.github/workflows/release.yml` | Fires on `v*` tag push — builds, publishes, zips artifacts, creates GitHub Release. |
-
-### Prerequisites
-
-Install the nbgv CLI globally (once per machine):
-
-```bash
-dotnet tool install --global nbgv
-```
-
-Check the current version:
-
-```bash
-nbgv get-version
-# Version:             0.1.0.nnnn
-# NuGetPackageVersion: 0.1.0
-```
+Standard SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.1.0`, `0.2.0`, `1.0.0`).
 
 ---
 
 ## How to release
 
-Every release is a two-step process: bump `version.json` in a PR, then tag after merge.
+The release process mirrors the Python `compas_pb` repo:
 
-### Patch release (`0.1.0` → `0.1.1`)
+### 1. Update the changelog
 
-1. Open a PR editing `version.json`:
-   ```diff
-   - "version": "0.1.0",
-   + "version": "0.1.1",
-   ```
-2. Merge to `main`.
-3. Tag and push:
-   ```bash
-   git checkout main && git pull
-   git tag v0.1.1
-   git push origin v0.1.1
-   ```
-   Pushing the tag triggers `release.yml`.
+In `CHANGELOG.md`, write your changes under `## [Unreleased]`:
 
-### Minor release (`0.1.x` → `0.2.0`)
+```markdown
+## [Unreleased]
 
-Same flow: edit `version.json` to `"0.2.0"`, merge, tag `v0.2.0`, push tag.
+### Features
+- Add something new
 
-### Major release (`0.x.x` → `1.0.0`)
+### Bug Fixes
+- Fix something broken
+```
 
-Same flow: edit `version.json` to `"1.0.0"`, merge, tag `v1.0.0`, push tag.
+### 2. Create a release branch with nbgv
 
-### Quick reference
+Install nbgv once (if not already):
+
+```bash
+dotnet tool install --global nbgv
+```
+
+Then prepare the release:
+
+```bash
+# on main
+nbgv prepare-release
+```
+
+This creates a `release/v{major}.{minor}` branch and bumps `version.json` on `main` to the next dev version.
+
+### 3. Update the changelog header on the release branch
+
+Switch to the release branch and replace `## [Unreleased]` with the version and date:
+
+```bash
+git checkout release/v0.2
+```
+
+Edit `CHANGELOG.md`:
+```markdown
+## [0.2.0] - 2026-08-09   ← replace [Unreleased] with this
+```
+
+Commit:
+```bash
+git add CHANGELOG.md
+git commit -m "chore: update changelog for 0.2.0"
+```
+
+### 4. Open a PR and merge into main
+
+Open a PR from `release/v0.2` → `main`. When merged, CI detects the release merge automatically:
+
+- Checks `CHANGELOG.md` has a versioned `## [x.y.z]` entry — fails if only `## [Unreleased]` is present
+- Runs build, format check, and tests
+- Creates tag `v0.2.0`
+- Publishes artifacts and creates the GitHub Release
+
+---
+
+## Quick reference
 
 | Action | Command |
 |---|---|
 | Show current version | `nbgv get-version` |
-| Show NuGet version only | `nbgv get-version -v NuGetPackageVersion` |
-| Tag a release | `git tag v<version> && git push origin v<version>` |
-| Bump version | Edit `version.json`, open PR, merge |
+| Show NuGet version | `nbgv get-version -v NuGetPackageVersion` |
+| Prepare a release | `nbgv prepare-release` |
 
 ---
 
 ## Version properties during build
 
-nbgv populates these MSBuild properties automatically (readable from any `.csproj`):
+nbgv populates these MSBuild properties automatically:
 
 | Property | Example |
 |---|---|
-| `$(Version)` | `0.1.0` |
-| `$(AssemblyVersion)` | `0.1.0.0` |
-| `$(FileVersion)` | `0.1.0.nnnn` |
-| `$(PackageVersion)` | `0.1.0` |
-| `$(InformationalVersion)` | `0.1.0+abc1234` |
+| `$(Version)` | `0.2.0` |
+| `$(AssemblyVersion)` | `0.2.0.0` |
+| `$(FileVersion)` | `0.2.0` |
+| `$(InformationalVersion)` | `0.2.0+abc1234` |
 
-On non-public branches (anything other than `main` or a `v*` tag), the NuGet/Informational versions get a `-g<sha>` suffix (e.g. `0.1.0-gd9f645a810`). This is controlled by `publicReleaseRefSpec` in `version.json`.
+On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`), controlled by `publicReleaseRefSpec` in `version.json`.
 
-From code:
+---
 
-```csharp
-var info = typeof(CompasPb.Serializer).Assembly
-    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
-    .InformationalVersion;
-```
+## CI Workflows
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `build.yml` | Push / PR to `main` | Format check, build, test |
+| `release.yml` | Push to `main` (from `release/**` merge) | Tag, publish artifacts, create GitHub Release |

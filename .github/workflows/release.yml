@@ -3,13 +3,48 @@ name: release
 on:
   push:
     branches:
-      - release/**
+      - main
 
 permissions:
   contents: write
 
 jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      is_release: ${{ steps.check.outputs.is_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if this is a release merge
+        id: check
+        run: |
+          # Check if the merge came from a release/** branch
+          MERGE_MSG=$(git log -1 --pretty=%s)
+          echo "Last commit: $MERGE_MSG"
+
+          if echo "$MERGE_MSG" | grep -qE "^Merge (pull request|branch) .* (from |')?release/"; then
+            # Extract version from CHANGELOG.md — first ## [x.y.z] entry
+            VERSION=$(grep -m1 "^## \[[0-9]" CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
+            if [[ -z "$VERSION" ]]; then
+              echo "ERROR: No versioned section found in CHANGELOG.md. Add ## [x.y.z] before merging."
+              exit 1
+            fi
+            echo "Release detected: $VERSION"
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Not a release merge — skipping."
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+
   build-and-test:
+    needs: [check-release]
+    if: needs.check-release.outputs.is_release == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -61,7 +96,8 @@ jobs:
         run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal
 
   publish:
-    needs: [build-and-test]
+    needs: [check-release, build-and-test]
+    if: needs.check-release.outputs.is_release == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -122,7 +158,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [publish]
+    needs: [check-release, publish]
+    if: needs.check-release.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -136,21 +173,19 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Install nbgv
-        run: dotnet tool install -g nbgv && echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Get version
-        id: version
         run: |
-          VERSION=$(nbgv get-version -v SemVer2)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          dotnet tool install -g nbgv
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-      - name: Create tag
+      - name: Create and push tag
         run: |
+          VERSION=${{ needs.check-release.outputs.version }}
+          TAG="v$VERSION"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ steps.version.outputs.tag }}
-          git push origin ${{ steps.version.outputs.tag }}
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_ENV
 
       - name: Download all published artifacts
         uses: actions/download-artifact@v4
@@ -174,7 +209,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.version }}
+          tag_name: ${{ env.tag }}
+          name: Release ${{ needs.check-release.outputs.version }}
           files: ./release-assets/*.zip
-          generate_release_notes: true
+          body_path: CHANGELOG.md

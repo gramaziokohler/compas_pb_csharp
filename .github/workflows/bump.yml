@@ -1,0 +1,58 @@
+name: bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+  workflow_call:
+    inputs:
+      bump:
+        description: "Version bump type (patch | minor | major)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Install nbgv
+        run: |
+          dotnet tool install -g nbgv
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare release branch
+        run: nbgv prepare-release
+
+      - name: Push release branch
+        run: |
+          BRANCH=$(git branch --show-current)
+          git push origin "$BRANCH"
+          echo "Pushed release branch: $BRANCH"
