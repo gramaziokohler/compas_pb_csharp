@@ -8,80 +8,119 @@ This repo uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVe
 
 Standard SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.1.0`, `0.2.0`, `1.0.0`).
 
+### Version source
+
+The version is read from `version.json`:
+
+```json
+{ "version": "0.1.0" }
+```
+
+`nbgv prepare-release` always does a **minor bump** on main automatically:
+
+```
+version.json = "0.1.0"
+                  ↓
+nbgv prepare-release
+                  ↓
+release/v0.1  →  stays at 0.1.0  ← becomes the release
+main          →  bumps to 0.2     ← next dev cycle
+```
+
 ---
 
 ## How to release
 
-The release process mirrors the Python `compas_pb` repo:
+### Minor release — `0.1.x → 0.2.0` (default)
 
-### 1. Update the changelog
+`nbgv prepare-release` handles this automatically.
 
-In `CHANGELOG.md`, write your changes under `## [Unreleased]`:
+1. Update `CHANGELOG.md` on `main` under `## [Unreleased]`
+2. Run on `main`:
+   ```bash
+   nbgv prepare-release
+   # creates release/v0.2, bumps main to 0.2
+   ```
+3. On the release branch, replace `## [Unreleased]` with the version:
+   ```bash
+   git checkout release/v0.2
+   # edit CHANGELOG.md: ## [0.2.0] - 2026-08-09
+   git add CHANGELOG.md && git commit -m "chore: update changelog for 0.2.0"
+   ```
+4. Open PR `release/v0.2` → `main` and merge → CI tags and publishes automatically
 
-```markdown
-## [Unreleased]
+---
 
-### Features
-- Add something new
+### Patch release — `0.1.0 → 0.1.1`
 
-### Bug Fixes
-- Fix something broken
-```
+Edit `version.json` manually on the release branch before merging:
 
-### 2. Create a release branch with nbgv
+1. Update `CHANGELOG.md` on `main` under `## [Unreleased]`
+2. Run on `main`:
+   ```bash
+   nbgv prepare-release
+   # creates release/v0.1
+   ```
+3. On the release branch, bump the patch in `version.json`:
+   ```bash
+   git checkout release/v0.1
+   # edit version.json: "version": "0.1.1"
+   # edit CHANGELOG.md: ## [0.1.1] - 2026-08-09
+   git add version.json CHANGELOG.md && git commit -m "chore: update changelog for 0.1.1"
+   ```
+4. Open PR `release/v0.1` → `main` and merge → CI tags `v0.1.1` and publishes
 
-Install nbgv once (if not already):
+---
 
-```bash
-dotnet tool install --global nbgv
-```
+### Major release — `0.x.x → 1.0.0`
 
-Then prepare the release:
+Edit `version.json` on `main` before running `nbgv prepare-release`:
 
-```bash
-# on main
-nbgv prepare-release
-```
+1. Update `CHANGELOG.md` on `main` under `## [Unreleased]`
+2. Edit `version.json` on `main` to the new major:
+   ```bash
+   # edit version.json: "version": "1.0.0"
+   git add version.json && git commit -m "chore: bump major to 1.0.0"
+   ```
+3. Run on `main`:
+   ```bash
+   nbgv prepare-release
+   # creates release/v1.0
+   ```
+4. On the release branch, update the changelog:
+   ```bash
+   git checkout release/v1.0
+   # edit CHANGELOG.md: ## [1.0.0] - 2026-08-09
+   git add CHANGELOG.md && git commit -m "chore: update changelog for 1.0.0"
+   ```
+5. Open PR `release/v1.0` → `main` and merge → CI tags `v1.0.0` and publishes
 
-This creates a `release/v{major}.{minor}` branch and bumps `version.json` on `main` to the next dev version.
+---
 
-### 3. Update the changelog header on the release branch
+## What CI does on merge
 
-Switch to the release branch and replace `## [Unreleased]` with the version and date:
+When a `release/**` branch merges into `main`, `release.yml` automatically:
 
-```bash
-git checkout release/v0.2
-```
-
-Edit `CHANGELOG.md`:
-```markdown
-## [0.2.0] - 2026-08-09   ← replace [Unreleased] with this
-```
-
-Commit:
-```bash
-git add CHANGELOG.md
-git commit -m "chore: update changelog for 0.2.0"
-```
-
-### 4. Open a PR and merge into main
-
-Open a PR from `release/v0.2` → `main`. When merged, CI detects the release merge automatically:
-
-- Checks `CHANGELOG.md` has a versioned `## [x.y.z]` entry — fails if only `## [Unreleased]` is present
-- Runs build, format check, and tests
-- Creates tag `v0.2.0`
-- Publishes artifacts and creates the GitHub Release
+1. Checks `CHANGELOG.md` has a versioned `## [x.y.z]` entry — **fails** if only `## [Unreleased]` is present
+2. Runs format check, build, and tests
+3. Creates tag `v{version}` from the changelog entry
+4. Publishes artifacts and creates the GitHub Release with `CHANGELOG.md` as release notes
 
 ---
 
 ## Quick reference
 
+| Bump type | How |
+|---|---|
+| **minor** `0.1 → 0.2` | `nbgv prepare-release` on main (automatic) |
+| **patch** `0.1.0 → 0.1.1` | `nbgv prepare-release` + edit `version.json` on release branch |
+| **major** `0.x → 1.0` | Edit `version.json` on main first, then `nbgv prepare-release` |
+
 | Action | Command |
 |---|---|
 | Show current version | `nbgv get-version` |
 | Show NuGet version | `nbgv get-version -v NuGetPackageVersion` |
-| Prepare a release | `nbgv prepare-release` |
+| Install nbgv | `dotnet tool install --global nbgv` |
 
 ---
 
@@ -105,4 +144,5 @@ On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`)
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | `build.yml` | Push / PR to `main` | Format check, build, test |
-| `release.yml` | Push to `main` (from `release/**` merge) | Tag, publish artifacts, create GitHub Release |
+| `bump.yml` | Manual dispatch | Run `nbgv prepare-release` and push release branch |
+| `release.yml` | Push to `main` from `release/**` merge | Tag, publish artifacts, create GitHub Release |
