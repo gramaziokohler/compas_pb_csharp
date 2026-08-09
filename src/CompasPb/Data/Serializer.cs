@@ -46,12 +46,13 @@ public static class Serializer
 
             _ => throw new ArgumentNullException(
                 $"Unsupported type: {obj.GetType()}"
-                + $"Supported types are IMessage, IEnumerable, Dictionary, and primitive types."
+                    + $"Supported types are IMessage, IEnumerable, Dictionary, and primitive types."
             ),
         };
     }
 
-    private static AnyData PackAnyData<T>(T obj) where T : IMessage<T>
+    private static AnyData PackAnyData<T>(T obj)
+        where T : IMessage<T>
     {
         if (obj == null)
         {
@@ -76,8 +77,11 @@ public static class Serializer
             bool b => new AnyData { Value = Value.ForBool(b) },
 
             // Serialize byte arrays as Base64 strings, fina a better way.
-            byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)), },
-            byte byt => new AnyData { Value = Value.ForString(Convert.ToBase64String(new[] { byt })), },
+            byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)) },
+            byte byt => new AnyData
+            {
+                Value = Value.ForString(Convert.ToBase64String(new[] { byt })),
+            },
             _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
         };
     }
