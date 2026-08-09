@@ -15,7 +15,59 @@ permissions:
   contents: write
 
 jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+        dotnet: ["9.0.x"]
+
+    defaults:
+      run:
+        working-directory: src/CompasPb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch compas_pb assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python ../../fetch_compas_pb.py
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Install CSharpier
+        run: |
+          dotnet tool install -g csharpier
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Check formatting
+        working-directory: ${{ github.workspace }}
+        run: csharpier check .
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        working-directory: ${{ github.workspace }}
+        run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal
+
   publish:
+    needs: [build-and-test]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -34,7 +86,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -48,15 +100,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch compas_pb_assets
+      - name: Fetch compas_pb assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python ../../fetch_compas_pb.py
 
-      - name: .Net Restore
+      - name: Restore
         run: dotnet restore
 
-      - name: .NET Publish (${{ matrix.os }})
+      - name: Publish (${{ matrix.os }})
         shell: bash
         run: |
           OUTPUT_PATH="${{ github.workspace }}/release_artifacts/${{ matrix.os }}/${{ matrix.framework }}"
@@ -71,7 +123,7 @@ jobs:
             -f ${{ matrix.framework }} \
             -o "$OUTPUT_PATH"
 
-      - name: Upload Release Artifact
+      - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: compas-pb-dist-${{ matrix.os }}-${{ matrix.framework }}
@@ -88,25 +140,21 @@ jobs:
         with:
           path: ./release-assets
 
-      - name: Clean up and Zip Assets
+      - name: Zip artifacts
         run: |
           cd ./release-assets
           for dir in compas-pb-dist-*; do
               if [ -d "$dir" ]; then
-                  Cleaned_Name=$(echo "$dir" | sed 's/compas-pb-dist-//g')
-
-                  Zip_Name="compas-pb-${Cleaned_Name}.zip"
-
-                  echo "Processing artifact: $dir -> $Zip_Name"
-
-                  mv "$dir" "$Cleaned_Name"
-
-                  zip -r "$Zip_Name" "$Cleaned_Name"
-                  rm -rf "$Cleaned_Name"
+                  cleaned=$(echo "$dir" | sed 's/compas-pb-dist-//g')
+                  zip_name="compas-pb-${cleaned}.zip"
+                  echo "Processing: $dir -> $zip_name"
+                  mv "$dir" "$cleaned"
+                  zip -r "$zip_name" "$cleaned"
+                  rm -rf "$cleaned"
               fi
           done
 
-      - name: Create GitHub Release and Upload Assets
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: ./release-assets/*.zip

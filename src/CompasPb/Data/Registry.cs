@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
@@ -10,6 +11,12 @@ public static class Registry
 {
     // thead-safe dictionary to store registered types
     private static readonly ConcurrentDictionary<string, System.Type> ProtoRegistry = new();
+
+    private static readonly Dictionary<
+        System.Type,
+        Func<Google.Protobuf.WellKnownTypes.Any, object?>
+    > _unpackDelegates = new();
+
     private static bool initialized = false;
 
     static Registry()
@@ -25,6 +32,7 @@ public static class Registry
         }
 
         RegisterAllTypes();
+        BuildUnpackDelegates();
         initialized = true;
     }
 
@@ -41,7 +49,7 @@ public static class Registry
         }
     }
 
-    public static IEnumerable<Type> GetRegisteredTypes()
+    public static IEnumerable<System.Type> GetRegisteredTypes()
     {
         return ProtoRegistry.Values;
     }
@@ -50,7 +58,6 @@ public static class Registry
     {
         if (string.IsNullOrEmpty(typeUrl))
         {
-
             return null;
         }
 
@@ -85,5 +92,37 @@ public static class Registry
         var type = typeof(T);
         var typeUrl = $"type.googleapis.com/{type.FullName}";
         ProtoRegistry.TryAdd(typeUrl, type);
+    }
+
+    private static void BuildUnpackDelegates()
+    {
+        var tryUnpackMethod = typeof(Google.Protobuf.WellKnownTypes.Any)
+            .GetMethods()
+            .First(m =>
+                m.Name == "TryUnpack"
+                && m.IsGenericMethodDefinition
+                && m.GetParameters().Length == 1
+            );
+
+        foreach (var type in ProtoRegistry.Values)
+        {
+            var closedMethod = tryUnpackMethod.MakeGenericMethod(type);
+            _unpackDelegates[type] = (any) =>
+            {
+                var args = new object?[] { null };
+                var success = closedMethod.Invoke(any, args) is true;
+                return success ? args[0] : null;
+            };
+        }
+    }
+
+    public static object? UnpackAs(Google.Protobuf.WellKnownTypes.Any any, System.Type targetType)
+    {
+        if (any == null || targetType == null)
+        {
+            return null;
+        }
+
+        return _unpackDelegates.TryGetValue(targetType, out var fn) ? fn(any) : null;
     }
 }

@@ -37,8 +37,7 @@
         <InformationalVersion>$(GitVersion_InformationalVersion)</InformationalVersion>
         <!-- Add -dev suffix for Debug configuration packages -->
         <VersionSuffix Condition="'$(Configuration)' == 'Debug' AND '$(VersionSuffix)' == ''"
-            >dev</VersionSuffix
-        >
+            >dev</VersionSuffix>
     </PropertyGroup>
 
     <!-- Code analysis -->

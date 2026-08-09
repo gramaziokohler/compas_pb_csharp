@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -20,7 +19,9 @@ public static class Deserializer
     }
 
     /// <summary>
-    /// Unpacks the given AnyData into an object.
+    /// Unpacks the given AnyData into an object. Dispatch is driven by the
+    /// generated DataOneofCase enum (compile-time exhaustive over the protobuf
+    /// oneof). The optional dataType overrides Registry lookup for the Message case.
     /// </summary>
     /// <returns></returns>
     public static object? UnpackAnyData(AnyData data, System.Type? dataType = null)
@@ -30,54 +31,29 @@ public static class Deserializer
             throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
         }
 
-        // Primitive type
-        if (data.Value != null)
+        return data.DataCase switch
         {
-            return UnpackPrimitiveData(data);
-        }
-
-        if (data.Message != null)
-        {
-            dataType ??= GetType(data);
-
-            if (dataType == null)
-            {
-                return null;
-            }
-
-            return dataType switch
-            {
-                var t when t == typeof(ListData) => UnpackListData(data),
-                var t when t == typeof(DictData) => UnpackDictData(data),
-                // IMessage types
-                _ when typeof(IMessage).IsAssignableFrom(dataType)
-                       && dataType != typeof(ListData)
-                       && dataType != typeof(DictData) => UnpackAs(data.Message, dataType),
-
-                // Primitive types
-                // _ when DataHelper.IsPrimitiveType(dataType) => UnpackPrimitiveData(data),
-                // Maybe some fallback handle as dictionary
-                _ => throw new ArgumentException(
-                    $"Unsupported type: {dataType}. Supported types are IMessage, ListData, DictData, and PrimitiveData."
-                ),
-            };
-        }
-
-        return null;
+            AnyData.DataOneofCase.Value => UnpackPrimitive(data.Value),
+            AnyData.DataOneofCase.Message => UnpackMessage(data.Message, dataType),
+            AnyData.DataOneofCase.Fallback => UnpackFallback(data.Fallback),
+            AnyData.DataOneofCase.None => null,
+            _ => null,
+        };
     }
 
     /// <summary>
     /// Unpacks the given AnyData into an object of type T.
     /// </summary>
     /// <returns></returns>
-    public static T? Unpack<T>(AnyData data) where T : class, IMessage<T>, new()
+    public static T? Unpack<T>(AnyData data)
+        where T : class, IMessage<T>, new()
     {
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
         }
 
-        return data.Message.TryUnpack<T>(out T result) ? result : null;
+        return data.Message != null && data.Message.TryUnpack<T>(out T result) ? result : null;
     }
 
     public static System.Type? GetType(AnyData data)
@@ -96,61 +72,59 @@ public static class Deserializer
         return Registry.GetType(typeUrl);
     }
 
-    private static List<object?> UnpackListData(AnyData data)
+    private static object? UnpackMessage(Any any, System.Type? dataType)
     {
-        if (data == null)
+        if (any == null)
         {
-            throw new ArgumentNullException(nameof(data), "ListData to unpack cannot be null.");
+            return null;
         }
 
-        if (!data.Message.TryUnpack<ListData>(out ListData listData))
+        // Structured containers: match via generated protobuf descriptor.
+        // TryUnpack<T> checks TypeUrl against T's descriptor and returns false on mismatch
+        // (no exception), so chaining is safe and avoids reflection at this layer.
+        if (any.TryUnpack<ListData>(out var listData))
         {
-            throw new InvalidOperationException("Failed to unpack as ListData.");
+            return UnpackListItems(listData);
+        }
+        if (any.TryUnpack<DictData>(out var dictData))
+        {
+            return UnpackDictItems(dictData);
         }
 
+        // Plain IMessage: caller-provided type wins, else Registry lookup.
+        dataType ??= Registry.GetType(any.TypeUrl);
+        return dataType == null ? null : UnpackAs(any, dataType);
+    }
 
-        var result = new List<object?>();
+    private static List<object?> UnpackListItems(ListData listData)
+    {
+        var result = new List<object?>(listData.Items.Count);
         foreach (var item in listData.Items)
         {
             result.Add(UnpackAnyData(item));
         }
-
         return result;
     }
 
-    private static Dictionary<string, object?> UnpackDictData(AnyData data)
+    private static Dictionary<string, object?> UnpackDictItems(DictData dictData)
     {
-        if (data == null)
-        {
-            throw new ArgumentNullException(nameof(data), "DictData to unpack cannot be null.");
-        }
-
-        if (!data.Message.TryUnpack<DictData>(out DictData dictData))
-        {
-            throw new InvalidOperationException("Failed to unpack as DictData.");
-        }
-
-        var result = new Dictionary<string, object?>();
+        var result = new Dictionary<string, object?>(dictData.Items.Count);
         foreach (var kvp in dictData.Items)
         {
             result[kvp.Key] = UnpackAnyData(kvp.Value);
         }
-
         return result;
     }
 
-    private static object? UnpackPrimitiveData(AnyData data)
+    private static Dictionary<string, object?> UnpackFallback(FallbackData fallback)
     {
-        if (data == null)
-        {
-            throw new ArgumentNullException(
-                nameof(data),
-                "PrimitiveData to unpack cannot be null."
-            );
-        }
+        return fallback.Data == null
+            ? new Dictionary<string, object?>()
+            : UnpackDictItems(fallback.Data);
+    }
 
-        var value = data.Value;
-        Console.WriteLine($"Unpacking PrimitiveData: {value}");
+    private static object? UnpackPrimitive(Value value)
+    {
         if (value == null)
         {
             return null;
@@ -173,35 +147,7 @@ public static class Deserializer
             return null;
         }
 
-        try
-        {
-            var method = typeof(Any)
-                .GetMethods()
-                .FirstOrDefault(m =>
-                    m.Name == "TryUnpack"
-                    && m.IsGenericMethodDefinition
-                    && m.GetParameters().Length == 1
-                )
-                ?.MakeGenericMethod(targetType); // create a generic method for the target type
-
-            if (method == null)
-            {
-                return null;
-            }
-
-            var parameters = new object?[] { null };
-            var result = method.Invoke(anyData, parameters);
-            if (result is bool success && success)
-            {
-                return parameters[0];
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to unpack {targetType.Name}: {ex.Message}");
-        }
-
-        return null;
+        return Registry.UnpackAs(anyData, targetType);
     }
 
     private static void GetVersion(string version)
