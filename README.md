@@ -17,88 +17,115 @@ A COMPAS_PB extension which lets you serialize and deserialize COMPAS `Data` typ
 
 Coming soon...
 
-## Basic Usage
+## Usage
 
-### (De)serialize to bytes
+There are three ways to use this library depending on your context.
 
-```cs
-using CompasPB.Data
+### Static API (Grasshopper / Unity / simple scripts)
 
-vector = VectorData(
-        x = new PointData
-        {
-            X = 1.02F,
-            Y = 2.02F,
-            Z = 3.02F,
-        },
-        y = new VectorData
-        {
-            X = 1.02F,
-            Y = 0.02F,
-            Z = 0.02F,
-        },
-        z = new VectorData
-        {
-            X = 0.02F,
-            Y = 1.02F,
-            Z = 0.02F,
-        },
-)
+The static `Serializer` and `Deserializer` classes work without any setup:
 
-var messageData = Serializer.PackAsAnyData(vector);
-var packData = Serializer.PackAsBytes(messageData);
+```csharp
+using CompasPb.Data;
 
-var unpackedData = Deserializer.UnpackBytes(response);
-var unpackedDataType = Deserializer.GetType(unpackedData);
-var data = Deserializer.UnpackAnyData(unpackedData, unpackedDataType);
+// Pack
+var frame = new FrameData
+{
+    Name = "myFrame",
+    Point = new PointData { X = 1.0f, Y = 2.0f, Z = 3.0f },
+    Xaxis = new VectorData { X = 1.0f, Y = 0.0f, Z = 0.0f },
+    Yaxis = new VectorData { X = 0.0f, Y = 1.0f, Z = 0.0f },
+};
+
+byte[] bytes = Serializer.PackAsBytes(Serializer.PackAsAnyData(frame));
+
+// Unpack — returns object?, cast manually
+AnyData anyData = Deserializer.UnpackBytes(bytes);
+object? result  = Deserializer.UnpackAnyData(anyData);
+var unpacked    = result as FrameData;
 ```
 
-### (De)serialize to file
+### Typed instance API (known type at compile time)
 
-Coming soon ...
+Use `CompasPbSerializer` directly for a cleaner typed experience — no casting needed:
 
-### Serialization of arbitrarily nested data structures
+```csharp
+using CompasPb.Data;
 
-```python
-using CompasPB.Data
-using System.Collection.Generic
+var serializer = new CompasPbSerializer();
+
+// Pack
+byte[] bytes = serializer.Pack(frame);
+
+// Unpack — typed, no cast
+FrameData? unpacked = serializer.Unpack<FrameData>(bytes);
+
+// Unpack — dynamic, when you don't know the type ahead of time
+object? result = serializer.Unpack(bytes);
+```
+
+### Dependency Injection
+
+Register `ICompasPbSerializer` in your DI container:
+
+```csharp
+// Program.cs / Startup.cs
+services.AddSingleton<ICompasPbSerializer, CompasPbSerializer>();
+
+// In any service or controller
+public class RobotService(ICompasPbSerializer serializer)
+{
+    public FrameData? GetFrame(byte[] bytes)
+        => serializer.Unpack<FrameData>(bytes);
+
+    public byte[] SendFrame(FrameData frame)
+        => serializer.Pack(frame);
+}
+```
+
+### Nested data structures
+
+All three options support arbitrarily nested lists and dictionaries:
+
+```csharp
+using CompasPb.Data;
+using System.Collections.Generic;
+
+var serializer = new CompasPbSerializer();
 
 var data = new Dictionary<string, object>
 {
-    ["center"] = new PointData
+    ["center"] = new PointData { X = 1.0f, Y = 2.0f, Z = 3.0f },
+    ["points"] = new List<object>
     {
-        X = 1.02F,
-        Y = 2.02F,
-        Z = 3.02F,
+        new PointData { X = 0.0f, Y = 0.0f, Z = 0.0f },
+        new PointData { X = 10.0f, Y = 0.0f, Z = 0.0f },
     },
-
-    ["outline"] = new List<object>
-    {
-        new PolylineData
-        {
-            Points = new List<PointData>
-            {
-                 new PointData { X = 0.0f, Y = 0.0f, Z = 0.0f },
-                 new PointData { X = 10.0f, Y = 0.0f, Z = 0.0f }
-            }
-        }
-        new PolylineData
-        {
-            Points = new List<PointData>
-            {
-                 new PointData { X = 0.0f, Y = 0.0f, Z = 0.0f },
-                 new PointData { X = 10.0f, Y = 0.0f, Z = 0.0f }
-            }
-        }
-    }
 };
 
-var messageData = Serializer.PackAsAnyData(data);
-var packData = Serializer.PackAsBytes(messageData);
+byte[] bytes  = serializer.Pack(data);
+object? result = serializer.Unpack(bytes);
+```
 
-var unpackedData = Deserializer.UnpackBytes(response);
-var unpackedDataType = Deserializer.GetType(unpackedData);
-var data = Deserializer.UnpackAnyData(unpackedData, unpackedDataType);
+### HTTP transport
+
+Use `CompasPbHttpClient` to send and receive data from a running `compas_pb` Python server:
+
+```csharp
+using CompasPb.Data;
+using CompasPb.Route;
+
+var serializer = new CompasPbSerializer();
+var client     = new CompasPbHttpClient("http://localhost:5000", serializer);
+
+// Send — packs and POSTs to /receiver
+await client.SendAsync(frame);
+
+// Receive typed — GETs from /sender and unpacks
+FrameData? result = await client.ReceiveAsync<FrameData>();
+
+// Receive dynamic — when the type is unknown
+object? result = await client.ReceiveAsync();
 ```
 
 ## Documentation
@@ -109,4 +136,3 @@ please check out the online documentation here: [compas_pb_csharp docs](https://
 ## Issue Tracker
 
 If you find a bug or if you have a problem with running the code, please file an issue on the [Issue Tracker](https://github.com/gramaziokohler/compas_pb_csharp/issues).
-

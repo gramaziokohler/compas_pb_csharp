@@ -23,4 +23,25 @@
             IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive"
         />
     </ItemGroup>
+
+    <!-- Explicitly copy the xunit test adapter to the output directory so VSTest can discover it.
+         xunit.runner.visualstudio 2.x targets net6.0/net462 and NuGet does not auto-import its
+         build props when the project targets net9.0 (resolved via netfx compat fallback). -->
+    <ItemGroup Label="Test Adapter">
+        <None
+            Include="$(NuGetPackageRoot)xunit.runner.visualstudio/2.8.2/build/net6.0/xunit.runner.visualstudio.testadapter.dll"
+            CopyToOutputDirectory="PreserveNewest"
+            Visible="false"
+        />
+        <None
+            Include="$(NuGetPackageRoot)xunit.runner.visualstudio/2.8.2/build/net6.0/xunit.runner.reporters.netcoreapp10.dll"
+            CopyToOutputDirectory="PreserveNewest"
+            Visible="false"
+        />
+        <None
+            Include="$(NuGetPackageRoot)xunit.runner.visualstudio/2.8.2/build/net6.0/xunit.runner.utility.netcoreapp10.dll"
+            CopyToOutputDirectory="PreserveNewest"
+            Visible="false"
+        />
+    </ItemGroup>
 </Project>

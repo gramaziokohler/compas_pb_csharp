@@ -44,6 +44,15 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      - name: Install CSharpier
+        run: |
+          dotnet tool install -g csharpier
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Check formatting
+        working-directory: ${{ github.workspace }}
+        run: csharpier check .
+
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
@@ -155,6 +164,7 @@ jobs:
               if [ -d "$dir" ]; then
                   cleaned=$(echo "$dir" | sed 's/compas-pb-dist-//g')
                   zip_name="compas-pb-${cleaned}.zip"
+                  echo "Processing: $dir -> $zip_name"
                   mv "$dir" "$cleaned"
                   zip -r "$zip_name" "$cleaned"
                   rm -rf "$cleaned"
