@@ -51,11 +51,13 @@ jobs:
         run: dotnet restore
 
       - name: Install CSharpier
-        run: dotnet tool install -g csharpier
+        run: |
+          dotnet tool install -g csharpier
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Check formatting
         working-directory: ${{ github.workspace }}
-        run: dotnet csharpier check .
+        run: csharpier check .
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
