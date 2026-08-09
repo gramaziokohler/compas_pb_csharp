@@ -21,7 +21,7 @@ Coming soon...
 
 There are three ways to use this library depending on your context.
 
-### Option A — Static API (Grasshopper / Unity / simple scripts)
+### Static API (Grasshopper / Unity / simple scripts)
 
 The static `Serializer` and `Deserializer` classes work without any setup:
 
@@ -45,7 +45,7 @@ object? result  = Deserializer.UnpackAnyData(anyData);
 var unpacked    = result as FrameData;
 ```
 
-### Option B — Typed instance API (known type at compile time)
+### Typed instance API (known type at compile time)
 
 Use `CompasPbSerializer` directly for a cleaner typed experience — no casting needed:
 
@@ -64,7 +64,7 @@ FrameData? unpacked = serializer.Unpack<FrameData>(bytes);
 object? result = serializer.Unpack(bytes);
 ```
 
-### Option C — Dependency Injection (ASP.NET / larger apps)
+### Dependency Injection
 
 Register `ICompasPbSerializer` in your DI container:
 
