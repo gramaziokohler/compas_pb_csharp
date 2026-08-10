@@ -38,7 +38,7 @@ This project uses [CSharpier](https://csharpier.com/) for code formatting:
 ```bash
 dotnet tool install -g csharpier
 csharpier check .
-csharpier .
+csharpier format .
 ```
 
 ## Release
