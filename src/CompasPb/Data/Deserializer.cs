@@ -5,7 +5,7 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
-public static class Deserializer
+internal static class Deserializer
 {
     /// <summary>
     /// Unpacks a byte array into an AnyData.

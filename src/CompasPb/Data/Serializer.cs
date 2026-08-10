@@ -5,7 +5,7 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
-public static class Serializer
+internal static class Serializer
 {
     public static readonly string CurrentVersion = PackageInfo.Version;
 
