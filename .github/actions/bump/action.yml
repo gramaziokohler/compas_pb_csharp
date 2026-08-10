@@ -1,0 +1,38 @@
+name: "Bump Version"
+description: "Prepare a release branch via nbgv prepare-release"
+
+inputs:
+  bump:
+    description: "Version bump type (patch | minor | major)"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Dotnet
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: "9.0.x"
+
+    - name: Install nbgv
+      shell: bash
+      run: |
+        dotnet tool install -g nbgv
+        echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+    - name: Configure git
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Prepare release branch
+      shell: bash
+      run: nbgv prepare-release
+
+    - name: Push release branch
+      shell: bash
+      run: |
+        BRANCH=$(git branch --show-current)
+        git push origin "$BRANCH"
+        echo "Pushed release branch: $BRANCH"

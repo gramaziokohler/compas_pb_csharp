@@ -9,8 +9,9 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
-    <!-- Display version info before build -->
-    <Target Name="DisplayBuildInfo" BeforeTargets="BeforeBuild">
+    <!-- Display version info after nbgv populates $(Version). -->
+    <!-- Must run AfterTargets="GetBuildVersion" so nbgv has set the version. -->
+    <Target Name="DisplayBuildInfo" AfterTargets="GetBuildVersion">
         <Message Importance="high" Text="Building: $(MSBuildProjectName)" />
         <Message Importance="high" Text="Version: $(Version)" />
         <Message Importance="high" Text="Configuration: $(Configuration)" />

@@ -30,8 +30,11 @@
         </EmbeddedResource>
     </ItemGroup>
 
+    <ItemGroup Label="Package Files">
+        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
     <ItemGroup Label="Build Tools">
         <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="All" />
     </ItemGroup>
 </Project>

@@ -11,7 +11,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Build and Versioning">
-        <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.143" />
+        <PackageVersion Include="Nerdbank.GitVersioning" Version="3.9.50" />
         <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     </ItemGroup>
 
