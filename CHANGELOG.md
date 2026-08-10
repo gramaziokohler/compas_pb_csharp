@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Upgrade the bundled `compas_pb` schema and generated C# bindings from 1.0 to 1.1
+- Serialize integers, floating-point values, dictionaries, and lists through their dedicated `AnyData` fields
+
+### Features
+
+- Add byte-array serialization using the compas_pb base64 representation
+- Add `ICompasFallback` support for interoperable fallback objects such as `compas_model` models
+- Preserve deserialization compatibility with legacy dictionaries and lists packed inside protobuf `Any` values
+
+### Tests
+
+- Add compas_pb version compatibility coverage
+- Add a Python-generated `compas_model` fixture to verify Python-to-C# wire interoperability
+
+### Development
+
+- Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
+
 ## [0.1.0] - 2026-08-09
 
 ### Features
