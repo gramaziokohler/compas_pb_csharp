@@ -24,6 +24,7 @@ Use `CompasPbSerializer` to pack and unpack data:
 ### Single object
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 
 var serializer = new CompasPbSerializer();
@@ -37,12 +38,15 @@ var frame = new FrameData
     Yaxis = new VectorData { X = 0.0f, Y = 1.0f, Z = 0.0f },
 };
 
+// Binary
 byte[] bytes = serializer.Pack(frame);
-
-// Unpack — typed, no cast needed
 FrameData? unpacked = serializer.Unpack<FrameData>(bytes);
 
-// Unpack — dynamic, when you don't know the type ahead of time
+// JSON
+string json = serializer.PackAsJson(frame);
+FrameData? fromJson = serializer.UnpackJson<FrameData>(json);
+
+// Dynamic — when you don't know the type ahead of time
 object? result = serializer.Unpack(bytes);
 ```
 
@@ -51,6 +55,7 @@ object? result = serializer.Unpack(bytes);
 Supports arbitrarily nested lists and dictionaries:
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 using System.Collections.Generic;
 
@@ -75,6 +80,8 @@ object? result = serializer.Unpack(bytes);
 Register `ICompasPbSerializer` in your DI container:
 
 ```csharp
+using CompasPb;
+
 // Program.cs / Startup.cs
 services.AddSingleton<ICompasPbSerializer, CompasPbSerializer>();
 
@@ -94,6 +101,7 @@ public class RobotService(ICompasPbSerializer serializer)
 Use `CompasPbHttpClient` to send and receive data from a running `compas_pb` Python server:
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 using CompasPb.Route;
 
@@ -107,7 +115,7 @@ await client.SendAsync(frame);
 FrameData? result = await client.ReceiveAsync<FrameData>();
 
 // Receive dynamic — when the type is unknown
-object? result = await client.ReceiveAsync();
+object? dynamic = await client.ReceiveAsync();
 ```
 
 ## Documentation
