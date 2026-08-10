@@ -13,98 +13,69 @@ Standard SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.1.0`, `0.2.0`, `1.0.0`).
 The version is read from `version.json`:
 
 ```json
-{ "version": "0.1.0" }
+{ "version": "1.0.0" }
 ```
 
-`nbgv prepare-release` always does a **minor bump** on main automatically:
-
-```
-version.json = "0.1.0"
-                  ↓
-nbgv prepare-release
-                  ↓
-release/v0.1  →  stays at 0.1.0  ← becomes the release
-main          →  bumps to 0.2     ← next dev cycle
-```
+The release-preparation workflow calculates the next version from the latest
+semantic-version tag and the selected `patch`, `minor`, or `major` increment. It
+uses `nbgv set-version` to update `version.json`; `nbgv` then stamps assemblies and
+packages consistently from that version and the Git history.
 
 ---
 
 ## How to release
 
-### Minor release — `0.1.x → 0.2.0` (default)
+1. Add every user-visible change to `CHANGELOG.md` under `## [Unreleased]`.
+2. Open **Actions → release → Run workflow** on the `main` branch.
+3. Select the required `patch`, `minor`, or `major` increment.
+4. The workflow creates and pushes `release/vX.Y.Z`, updates `version.json`, and
+   moves the unreleased changelog entries under `## [X.Y.Z] - YYYY-MM-DD`.
+5. Open a pull request from `release/vX.Y.Z` to `main` and review the version and
+   changelog changes.
+6. Merge the release pull request. The push to `main` validates, packages,
+   publishes, tags, and creates the GitHub release automatically.
 
-`nbgv prepare-release` handles this automatically.
+For the first stable release from `0.1.0`, select **major** to prepare `1.0.0`.
 
-1. Update `CHANGELOG.md` on `main` under `## [Unreleased]`
-2. Run on `main`:
-   ```bash
-   nbgv prepare-release
-   # creates release/v0.2, bumps main to 0.2
-   ```
-3. On the release branch, replace `## [Unreleased]` with the version:
-   ```bash
-   git checkout release/v0.2
-   # edit CHANGELOG.md: ## [0.2.0] - 2026-08-09
-   git add CHANGELOG.md && git commit -m "chore: update changelog for 0.2.0"
-   ```
-4. Open PR `release/v0.2` → `main` and merge → CI tags and publishes automatically
+To prepare a release locally instead of using Actions:
 
----
-
-### Patch release — `0.1.0 → 0.1.1`
-
-Edit `version.json` manually on the release branch before merging:
-
-1. Update `CHANGELOG.md` on `main` under `## [Unreleased]`
-2. Run on `main`:
-   ```bash
-   nbgv prepare-release
-   # creates release/v0.1
-   ```
-3. On the release branch, bump the patch in `version.json`:
-   ```bash
-   git checkout release/v0.1
-   # edit version.json: "version": "0.1.1"
-   # edit CHANGELOG.md: ## [0.1.1] - 2026-08-09
-   git add version.json CHANGELOG.md && git commit -m "chore: update changelog for 0.1.1"
-   ```
-4. Open PR `release/v0.1` → `main` and merge → CI tags `v0.1.1` and publishes
-
----
-
-### Major release — `0.x.x → 1.0.0`
-
-Edit `version.json` on `main` before running `nbgv prepare-release`:
-
-1. Update `CHANGELOG.md` on `main` under `## [Unreleased]`
-2. Edit `version.json` on `main` to the new major:
-   ```bash
-   # edit version.json: "version": "1.0.0"
-   git add version.json && git commit -m "chore: bump major to 1.0.0"
-   ```
-3. Run on `main`:
-   ```bash
-   nbgv prepare-release
-   # creates release/v1.0
-   ```
-4. On the release branch, update the changelog:
-   ```bash
-   git checkout release/v1.0
-   # edit CHANGELOG.md: ## [1.0.0] - 2026-08-09
-   git add CHANGELOG.md && git commit -m "chore: update changelog for 1.0.0"
-   ```
-5. Open PR `release/v1.0` → `main` and merge → CI tags `v1.0.0` and publishes
+```bash
+dotnet tool install --global nbgv --version 3.9.50
+bash ./bump.sh major
+git push --set-upstream origin release/v1.0.0
+```
 
 ---
 
 ## What CI does on merge
 
-When a `release/**` branch merges into `main`, `release.yml` automatically:
+On every push to `main`, `release.yml` compares the first versioned changelog
+section with `version.json` and the existing release tags. If the versions match
+and neither `vX.Y.Z` nor the legacy `X.Y.Z` tag exists, it automatically:
 
-1. Checks `CHANGELOG.md` has a versioned `## [x.y.z]` entry — **fails** if only `## [Unreleased]` is present
-2. Runs format check, build, and tests
-3. Creates tag `v{version}` from the changelog entry
-4. Publishes artifacts and creates the GitHub Release with `CHANGELOG.md` as release notes
+1. Runs the format check, build, and tests on Windows and macOS.
+2. Builds the platform release artifacts.
+3. Packs and publishes `CompasPb.X.Y.Z.nupkg` and its symbol package to NuGet.org.
+4. Creates and pushes tag `vX.Y.Z`.
+5. Creates the GitHub release and attaches the platform artifacts.
+
+Ordinary pushes do not publish when the changelog version differs from
+`version.json` or the version already has a release tag.
+
+### NuGet API key
+
+The repository must have a GitHub Actions secret named `NUGET_API_KEY`:
+
+1. Sign in to [nuget.org](https://www.nuget.org/) with the account or organization
+   that should own `CompasPb`.
+2. Open the account menu, select **API Keys**, and create a key with **Push** scope.
+3. Restrict the package glob to `CompasPb` and choose an appropriate expiration.
+4. Copy the key immediately; NuGet does not display it again.
+5. In GitHub, open **Settings → Secrets and variables → Actions**, create a new
+   repository secret named `NUGET_API_KEY`, and paste the key as its value.
+
+Never commit the API key, paste it into an issue or workflow file, or print it in
+CI output. Rotate the NuGet key and replace the GitHub secret before it expires.
 
 ---
 
@@ -112,9 +83,9 @@ When a `release/**` branch merges into `main`, `release.yml` automatically:
 
 | Bump type | How |
 |---|---|
-| **minor** `0.1 → 0.2` | `nbgv prepare-release` on main (automatic) |
-| **patch** `0.1.0 → 0.1.1` | `nbgv prepare-release` + edit `version.json` on release branch |
-| **major** `0.x → 1.0` | Edit `version.json` on main first, then `nbgv prepare-release` |
+| **patch** `1.0.0 → 1.0.1` | Run `release` on `main` with `patch` |
+| **minor** `1.0.x → 1.1.0` | Run `release` on `main` with `minor` |
+| **major** `0.x.x → 1.0.0` | Run `release` on `main` with `major` |
 
 | Action | Command |
 |---|---|
@@ -144,5 +115,5 @@ On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`)
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | `build.yml` | Push / PR to `main` | Format check, build, test |
-| `bump.yml` | Manual dispatch | Run `nbgv prepare-release` and push release branch |
-| `release.yml` | Push to `main` from `release/**` merge | Tag, publish artifacts, create GitHub Release |
+| `release.yml` | Manual dispatch | Prepare and push a versioned release branch |
+| `release.yml` | Push to `main` | Detect an untagged release, publish it, tag it, and create the GitHub Release |
