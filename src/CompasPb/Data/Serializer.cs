@@ -9,21 +9,15 @@ public static class Serializer
 {
     public static readonly string CurrentVersion = PackageInfo.Version;
 
-    /// <summary>
-    /// Packs the given object into a byte array.
-    /// </summary>
-    /// <returns></returns>
     public static byte[] PackAsBytes(AnyData data)
     {
-        var messageData = new MessageData { Data = data, Version = CurrentVersion };
-        byte[] dataBytes = messageData.ToByteArray();
-        return dataBytes;
+        if (data is null)
+        {
+            throw new ArgumentNullException(nameof(data));
+        }
+        return new MessageData { Data = data, Version = CurrentVersion }.ToByteArray();
     }
 
-    /// <summary>
-    /// Packs the given object into an AnyData.
-    /// </summary>
-    /// <returns></returns>
     public static AnyData PackAsAnyData(object? obj)
     {
         if (obj is null)
@@ -33,98 +27,67 @@ public static class Serializer
 
         return obj switch
         {
-            // IMessage (FrameData, VectorData, ...)
-            IMessage message => new AnyData { Message = Any.Pack(message) },
-            // Dictionary
-            IDictionary dict => PackAnyData(PackDict(dict)),
-            // List/ Array
-            IEnumerable items when obj is not string && obj is not IDictionary => PackAnyData(
-                PackList(items)
-            ),
-            // Primitive types
-            _ when Helper.IsPrimitiveType(obj) => PackPrimitiveData(obj),
-
-            _ => throw new ArgumentNullException(
-                $"Unsupported type: {obj.GetType()}"
-                    + $"Supported types are IMessage, IEnumerable, Dictionary, and primitive types."
-            ),
-        };
-    }
-
-    private static AnyData PackAnyData<T>(T obj)
-        where T : IMessage<T>
-    {
-        if (obj == null)
-        {
-            throw new ArgumentNullException(nameof(obj), "Object to pack cannot be null.");
-        }
-
-        Any anyData = Any.Pack(obj);
-        return new AnyData { Message = anyData };
-    }
-
-    private static AnyData PackPrimitiveData(object value)
-    {
-        return value switch
-        {
-            null => new AnyData { Value = Value.ForNull() },
-            int i => new AnyData { Value = Value.ForNumber(i) },
-            float f => new AnyData { Value = Value.ForNumber(f) },
-            double d => new AnyData { Value = Value.ForNumber(d) },
-            long l => new AnyData { Value = Value.ForNumber(l) },
-            decimal m => new AnyData { Value = Value.ForNumber((double)m) },
-            string s => new AnyData { Value = Value.ForString(s) },
-            bool b => new AnyData { Value = Value.ForBool(b) },
-
-            // Serialize byte arrays as Base64 strings, fina a better way.
-            byte[] bytes => new AnyData { Value = Value.ForString(Convert.ToBase64String(bytes)) },
-            byte byt => new AnyData
+            ICompasFallback fallback => new AnyData
             {
-                Value = Value.ForString(Convert.ToBase64String(new[] { byt })),
+                Fallback = new FallbackData { Data = PackDict(fallback.ToFallbackData()) },
             },
-            _ => throw new ArgumentException($"Unsupported type: {value.GetType()}"),
+            IMessage message => new AnyData { Message = Any.Pack(message) },
+            IDictionary dictionary => new AnyData { DictValue = PackDict(dictionary) },
+            byte[] bytes => new AnyData
+            {
+                Value = Value.ForString("base64:" + Convert.ToBase64String(bytes)),
+            },
+            string text => new AnyData { Value = Value.ForString(text) },
+            bool boolean => new AnyData { Value = Value.ForBool(boolean) },
+            _ when IsIntegral(obj) => new AnyData { IntValue = Convert.ToInt64(obj) },
+            _ when IsFloatingPoint(obj) => new AnyData { DoubleValue = Convert.ToDouble(obj) },
+            IEnumerable items => new AnyData { ListValue = PackList(items) },
+            _ => throw new ArgumentException(
+                $"Unsupported protobuf value type: {obj.GetType()}.",
+                nameof(obj)
+            ),
         };
     }
+
+    private static bool IsIntegral(object value) =>
+        value is sbyte
+        || value is byte
+        || value is short
+        || value is ushort
+        || value is int
+        || value is uint
+        || value is long
+        || value is ulong;
+
+    private static bool IsFloatingPoint(object value) =>
+        value is float || value is double || value is decimal;
 
     private static ListData PackList(IEnumerable items)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items), "Items to pack cannot be null.");
-        }
-
-        var listData = new ListData();
+        var packed = new ListData();
         foreach (var item in items)
         {
-            AnyData packedItem = PackAsAnyData(item);
-            listData.Items.Add(packedItem);
+            packed.Items.Add(PackAsAnyData(item));
         }
-
-        return listData;
+        return packed;
     }
 
-    private static DictData PackDict(IDictionary dict)
+    private static DictData PackDict(IDictionary dictionary)
     {
-        if (dict == null)
+        if (dictionary is null)
         {
-            throw new ArgumentException($"Dictionary cannot be null. {nameof(dict)}");
+            throw new ArgumentNullException(nameof(dictionary));
         }
 
-        var dictData = new DictData();
-        foreach (DictionaryEntry entry in dict)
+        var packed = new DictData();
+        foreach (DictionaryEntry entry in dictionary)
         {
             if (entry.Key is null)
             {
-                throw new ArgumentException($"Dictionary key cannot be null. {nameof(entry.Key)}");
+                throw new ArgumentException("Dictionary keys cannot be null.", nameof(dictionary));
             }
-            else
-            {
-                string key = entry.Key.ToString()!;
-                AnyData packedValue = PackAsAnyData(entry.Value);
-                dictData.Items.Add(key, packedValue);
-            }
+            packed.Items.Add(entry.Key.ToString()!, PackAsAnyData(entry.Value));
         }
-
-        return dictData;
+        return packed;
     }
 }
