@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
 using Google.Protobuf;
-using Google.Protobuf.WellKnownTypes;
 using Google.Protobuf.Reflection;
+using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
@@ -33,7 +33,9 @@ internal static class Serializer
             DatastructuresReflection.Descriptor
         );
         var formatter = new JsonFormatter(
-            new JsonFormatter.Settings(false).WithFormatDefaultValues(true).WithTypeRegistry(registry)
+            new JsonFormatter.Settings(false)
+                .WithFormatDefaultValues(true)
+                .WithTypeRegistry(registry)
         );
         return formatter.Format(messageData);
     }

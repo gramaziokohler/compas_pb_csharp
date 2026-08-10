@@ -22,8 +22,7 @@ public class CompasPbSerializer : ICompasPbSerializer
         Deserializer.Unpack<T>(Deserializer.UnpackBytes(data));
 
     /// <inheritdoc />
-    public string PackAsJson(object? data) =>
-        Serializer.PackAsJson(Serializer.PackAsAnyData(data));
+    public string PackAsJson(object? data) => Serializer.PackAsJson(Serializer.PackAsAnyData(data));
 
     /// <inheritdoc />
     public object? UnpackJson(string json) =>

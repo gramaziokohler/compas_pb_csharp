@@ -45,7 +45,9 @@ namespace CompasPb.UserCase
 
             // Typed unpack
             FrameData? unpackedFrame = serializer.Unpack<FrameData>(frameBytes);
-            Console.WriteLine($"Unpacked FrameData: {unpackedFrame?.Name} ({unpackedFrame?.Point})");
+            Console.WriteLine(
+                $"Unpacked FrameData: {unpackedFrame?.Name} ({unpackedFrame?.Point})"
+            );
 
             // Dynamic unpack
             object? dynamicFrame = serializer.Unpack(frameBytes);
