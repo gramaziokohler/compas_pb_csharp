@@ -1,45 +1,5 @@
 # Architecture
 
-## Public API — Three Ways to Use
-
-### User Type A — Static (Grasshopper / Unity, no DI)
-
-```csharp
-// Pack
-byte[] bytes = Serializer.PackAsBytes(Serializer.PackAsAnyData(myFrame));
-
-// Unpack — dynamic, returns object?
-AnyData anyData = Deserializer.UnpackBytes(bytes);
-object? result  = Deserializer.UnpackAnyData(anyData);
-var frame       = result as FrameData;
-```
-
-### User Type B — Instance (knows the type, wants typed API)
-
-```csharp
-var serializer = new CompasPbSerializer();
-
-byte[] bytes      = serializer.Pack(myFrame);
-FrameData? frame  = serializer.Unpack<FrameData>(bytes);   // no cast needed
-object?   dynamic = serializer.Unpack(bytes);              // dynamic path still available
-```
-
-### User Type C — Injected (ASP.NET, larger apps, testable)
-
-```csharp
-// Registration
-services.AddSingleton<ICompasPbSerializer, CompasPbSerializer>();
-
-// Consumer
-public class MyService(ICompasPbSerializer serializer)
-{
-    public void Handle(byte[] incoming)
-    {
-        FrameData? frame = serializer.Unpack<FrameData>(incoming);
-    }
-}
-```
-
 ---
 
 ## Data Flow
@@ -48,35 +8,144 @@ public class MyService(ICompasPbSerializer serializer)
 C# Object (e.g., FrameData, List, Dict, int, string)
     │
     ▼
-Serializer.PackAsAnyData(object) -> AnyData (polymorphic wrapping)
-    │
+CompasPbSerializer.Pack(object)
+    │  internally: Serializer.PackAsAnyData(object) -> AnyData
+    │              Serializer.PackAsBytes(AnyData)  -> byte[]
     ▼
-Serializer.PackAsBytes(AnyData) -> byte[] (MessageData envelope + version)
-    │
-    ▼  [CompasPbHttpClient.SendAsync() -- HTTP POST application/x-protobuf]
-    │
 byte[]
     │
     ▼
-Deserializer.UnpackBytes(byte[]) -> AnyData (parse + version check)
-    │
-    ├── typed path:   Deserializer.Unpack<T>(AnyData) -> T?      [no reflection]
-    │
-    └── dynamic path: Deserializer.UnpackAnyData(AnyData) -> object?
-                          └── Registry.UnpackAs(any, targetType) [delegate cache, O(1)]
+CompasPbSerializer.Unpack(byte[]) / Unpack<T>(byte[])
+    │  internally: Deserializer.UnpackBytes(byte[])      -> AnyData
+    │              Deserializer.UnpackAnyData(AnyData)    -> object?
+    │              Deserializer.Unpack<T>(AnyData)        -> T?
+    │                  └── Registry.UnpackAs(any, type) [delegate cache, O(1)]
+    ▼
+object? or T?
 ```
 
 ---
+
+## Registry — External Type Registration
+
+### Current Limitation
+
+`Registry` only scans `typeof(Registry).Assembly` — types defined in consumer assemblies (e.g., custom proto messages in a Grasshopper plugin) are never discovered. There is no public API to register external types.
+
+### Assembly Scanning
+
+Expose the existing scan logic as a public method. Follows the same pattern as MediatR, AutoMapper, FluentValidation.
+
+```csharp
+// Registry.cs — add public method
+public static void RegisterAssembly(Assembly assembly)
+{
+    var types = assembly
+        .GetTypes()
+        .Where(t => typeof(IMessage).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass);
+
+    foreach (var type in types)
+    {
+        ProtoRegistry[type.Name] = type;
+    }
+
+    BuildUnpackDelegates();
+}
+
+// Refactor existing init
+private static void RegisterAllTypes()
+{
+    RegisterAssembly(typeof(Registry).Assembly);
+}
+```
+
+```csharp
+// In Grasshopper plugin startup, Unity Awake(), etc.
+Registry.RegisterAssembly(typeof(MyCustomMessage).Assembly);
+```
+
+### Google.Protobuf TypeRegistry
+
+Use the built-in `TypeRegistry` from Google.Protobuf for type URL resolution. Each generated `.proto` file already has a `*Reflection.Descriptor` (e.g., `GeometryReflection.Descriptor`).
+
+```csharp
+// Registry.cs — use Google's TypeRegistry for resolution
+private static TypeRegistry _typeRegistry = TypeRegistry.FromFiles(
+    GeometryReflection.Descriptor,
+    MessageReflection.Descriptor,
+    DatastructuresReflection.Descriptor
+);
+
+public static void Register(params FileDescriptor[] descriptors)
+{
+    // Merge existing + new descriptors
+    var allFiles = new List<FileDescriptor>();
+    foreach (var msgDesc in _typeRegistry)
+    {
+        if (!allFiles.Contains(msgDesc.File))
+            allFiles.Add(msgDesc.File);
+    }
+    allFiles.AddRange(descriptors);
+
+    _typeRegistry = TypeRegistry.FromFiles(allFiles.ToArray());
+    BuildUnpackDelegates();
+}
+
+public static Type? GetType(string typeUrl)
+{
+    var stripped = typeUrl.StartsWith("type.googleapis.com/")
+        ? typeUrl.Substring("type.googleapis.com/".Length)
+        : typeUrl;
+    return _typeRegistry.Find(stripped)?.ClrType;
+}
+```
+### Source Generator (compile-time, zero reflection)
+
+ISSUE: Cannot work on Net Framework 4.8 (no source generators). Only works on .NET 5+ and .NET Standard 2.0+ (with SDK-style projects).
+
+A Roslyn source generator scans for all `IMessage` types at compile time and emits a static registry with direct `TryUnpack<T>` calls — no reflection at runtime.
+
+```
+src/CompasPb.Generators/
+├── CompasPb.Generators.csproj   (netstandard2.0, analyzer)
+└── RegistryGenerator.cs         (IIncrementalGenerator)
+```
+
+The generator emits:
+
+```csharp
+// <auto-generated> Registry.g.cs
+public static partial class Registry
+{
+    private static readonly Dictionary<string, Type> _types = new()
+    {
+        ["PointData"] = typeof(PointData),
+        ["FrameData"] = typeof(FrameData),
+        // ... all IMessage types discovered at compile time
+    };
+
+    public static object? UnpackAs(Any any, Type targetType)
+    {
+        // Static dispatch — no reflection
+        if (targetType == typeof(PointData))
+            return any.TryUnpack<PointData>(out var r) ? r : null;
+        if (targetType == typeof(FrameData))
+            return any.TryUnpack<FrameData>(out var r) ? r : null;
+        // ...
+        return null;
+    }
+}
+```
 
 ## Design Patterns
 
 ### 1. Interface + Implementation (`ICompasPbSerializer` / `CompasPbSerializer`)
 
-Public contract is an interface — enables DI, mocking, and multiple implementations. `CompasPbSerializer` is the single concrete implementation.
+Public contract is an interface — enables DI, mocking, and multiple implementations. `CompasPbSerializer` is the single public entry point for all serialization.
 
-### 2. Static Facade Pattern (`Serializer.cs`, `Deserializer.cs`)
+### 2. Internal Helpers (`Serializer.cs`, `Deserializer.cs`)
 
-Static methods remain as a convenience facade over `CompasPbSerializer`. No behavior change for existing callers.
+`Serializer` and `Deserializer` are `internal static` classes containing the actual pack/unpack logic. Not exposed to consumers — all public access goes through `CompasPbSerializer`.
 
 ### 3. Delegate Cache in Registry (`Registry.cs`)
 

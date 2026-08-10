@@ -19,14 +19,14 @@ Coming soon...
 
 ## Usage
 
-There are three ways to use this library depending on your context.
+Use `CompasPbSerializer` to pack and unpack data:
 
-### Static API (Grasshopper / Unity / simple scripts)
-
-The static `Serializer` and `Deserializer` classes work without any setup:
+### Single object
 
 ```csharp
 using CompasPb.Data;
+
+var serializer = new CompasPbSerializer();
 
 // Pack
 var frame = new FrameData
@@ -37,30 +37,36 @@ var frame = new FrameData
     Yaxis = new VectorData { X = 0.0f, Y = 1.0f, Z = 0.0f },
 };
 
-byte[] bytes = Serializer.PackAsBytes(Serializer.PackAsAnyData(frame));
-
-// Unpack — returns object?, cast manually
-AnyData anyData = Deserializer.UnpackBytes(bytes);
-object? result  = Deserializer.UnpackAnyData(anyData);
-var unpacked    = result as FrameData;
-```
-
-### Typed instance API (known type at compile time)
-
-Use `CompasPbSerializer` directly for a cleaner typed experience — no casting needed:
-
-```csharp
-using CompasPb.Data;
-
-var serializer = new CompasPbSerializer();
-
-// Pack
 byte[] bytes = serializer.Pack(frame);
 
-// Unpack — typed, no cast
+// Unpack — typed, no cast needed
 FrameData? unpacked = serializer.Unpack<FrameData>(bytes);
 
 // Unpack — dynamic, when you don't know the type ahead of time
+object? result = serializer.Unpack(bytes);
+```
+
+### Nested data structures
+
+Supports arbitrarily nested lists and dictionaries:
+
+```csharp
+using CompasPb.Data;
+using System.Collections.Generic;
+
+var serializer = new CompasPbSerializer();
+
+var data = new Dictionary<string, object>
+{
+    ["center"] = new PointData { X = 1.0f, Y = 2.0f, Z = 3.0f },
+    ["points"] = new List<object>
+    {
+        new PointData { X = 0.0f, Y = 0.0f, Z = 0.0f },
+        new PointData { X = 10.0f, Y = 0.0f, Z = 0.0f },
+    },
+};
+
+byte[] bytes   = serializer.Pack(data);
 object? result = serializer.Unpack(bytes);
 ```
 
@@ -81,30 +87,6 @@ public class RobotService(ICompasPbSerializer serializer)
     public byte[] SendFrame(FrameData frame)
         => serializer.Pack(frame);
 }
-```
-
-### Nested data structures
-
-All three options support arbitrarily nested lists and dictionaries:
-
-```csharp
-using CompasPb.Data;
-using System.Collections.Generic;
-
-var serializer = new CompasPbSerializer();
-
-var data = new Dictionary<string, object>
-{
-    ["center"] = new PointData { X = 1.0f, Y = 2.0f, Z = 3.0f },
-    ["points"] = new List<object>
-    {
-        new PointData { X = 0.0f, Y = 0.0f, Z = 0.0f },
-        new PointData { X = 10.0f, Y = 0.0f, Z = 0.0f },
-    },
-};
-
-byte[] bytes  = serializer.Pack(data);
-object? result = serializer.Unpack(bytes);
 ```
 
 ### HTTP transport
