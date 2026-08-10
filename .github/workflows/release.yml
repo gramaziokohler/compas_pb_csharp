@@ -198,6 +198,10 @@ jobs:
     needs: [check-release, build-and-test]
     if: needs.check-release.outputs.is_release == 'true'
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
 
     defaults:
       run:
@@ -239,20 +243,26 @@ jobs:
 
           test -f "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg"
 
-      - name: Check NuGet API key
+      - name: Check NuGet account configuration
         shell: bash
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_USER: ${{ vars.NUGET_USER }}
         run: |
-          if [[ -z "$NUGET_API_KEY" ]]; then
-            echo "ERROR: Add NUGET_API_KEY to the repository's Actions secrets."
+          if [[ -z "$NUGET_USER" ]]; then
+            echo "ERROR: Add NUGET_USER to the repository's Actions variables."
             exit 1
           fi
+
+      - name: NuGet login (OIDC to temporary API key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ vars.NUGET_USER }}
 
       - name: Push to NuGet.org
         shell: bash
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           VERSION="${{ needs.check-release.outputs.version }}"
           dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg" \

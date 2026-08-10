@@ -62,20 +62,42 @@ and neither `vX.Y.Z` nor the legacy `X.Y.Z` tag exists, it automatically:
 Ordinary pushes do not publish when the changelog version differs from
 `version.json` or the version already has a release tag.
 
-### NuGet API key
+### NuGet Trusted Publishing
 
-The repository must have a GitHub Actions secret named `NUGET_API_KEY`:
+NuGet publication uses GitHub OIDC and NuGet.org Trusted Publishing. The workflow
+does not store a long-lived API key; `NuGet/login` exchanges the job's OIDC token
+for a temporary NuGet API key immediately before the package push.
 
-1. Sign in to [nuget.org](https://www.nuget.org/) with the account or organization
-   that should own `CompasPb`.
-2. Open the account menu, select **API Keys**, and create a key with **Push** scope.
-3. Restrict the package glob to `CompasPb` and choose an appropriate expiration.
-4. Copy the key immediately; NuGet does not display it again.
-5. In GitHub, open **Settings → Secrets and variables → Actions**, create a new
-   repository secret named `NUGET_API_KEY`, and paste the key as its value.
+Configure the trusted publisher on NuGet.org:
 
-Never commit the API key, paste it into an issue or workflow file, or print it in
-CI output. Rotate the NuGet key and replace the GitHub secret before it expires.
+1. Sign in to [nuget.org](https://www.nuget.org/) with the account that should own
+   `CompasPb`, then open **Trusted Publishing** from the account menu.
+2. Add a GitHub Actions policy owned by the appropriate NuGet user or organization.
+3. Enter these case-insensitive policy values:
+
+   | Policy field | Value |
+   |---|---|
+   | Repository owner | `gramaziokohler` |
+   | Repository | `compas_pb_csharp` |
+   | Workflow file | `release.yml` |
+   | Environment | `release` |
+
+   Enter only the workflow filename, not `.github/workflows/release.yml`.
+4. In the GitHub repository, open **Settings → Secrets and variables → Actions →
+   Variables** and create `NUGET_USER`. Set it to the NuGet.org profile name that
+   authenticates the publication, not an email address. The policy itself may be
+   owned by that user or by an organization they belong to.
+5. Optionally configure protection rules or required reviewers for the GitHub
+   `release` environment.
+
+The `nuget-publish` job has only `contents: read` and `id-token: write` permissions.
+NuGet.org validates the repository, workflow, environment, and policy owner before
+issuing a temporary credential. No `NUGET_API_KEY` repository secret is required.
+
+For some repositories, a new trusted-publishing policy is temporarily active for
+seven days until its first successful publication establishes the immutable GitHub
+repository and owner IDs. Restart that activation window in NuGet.org if it expires
+before the release runs.
 
 ---
 
