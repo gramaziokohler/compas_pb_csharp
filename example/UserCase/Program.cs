@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using CompasPb;
 using CompasPb.Data;
 
 namespace CompasPb.UserCase
@@ -49,6 +50,14 @@ namespace CompasPb.UserCase
             // Dynamic unpack
             object? dynamicFrame = serializer.Unpack(frameBytes);
             Console.WriteLine($"Dynamic unpack: {dynamicFrame} (Type: {dynamicFrame?.GetType()})");
+
+            // ======= JSON =======
+            Console.WriteLine("\n======= JSON =======");
+            string json = serializer.PackAsJson(frame);
+            Console.WriteLine($"JSON: {json}");
+
+            FrameData? fromJson = serializer.UnpackJson<FrameData>(json);
+            Console.WriteLine($"From JSON: {fromJson?.Name} ({fromJson?.Point})");
 
             // ======= Nested data =======
             Console.WriteLine("\n======= Nested List =======");
