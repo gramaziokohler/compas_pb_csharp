@@ -5,7 +5,9 @@
 
 <p align="center">
     <a href="#"><img src="https://img.shields.io/badge/C%23-12.0-239120.svg?logo=csharp" alt="C# 12.0"></a>
-    <a href="#"><img src="https://img.shields.io/badge/target%20framework-net9.0-blue" alt="Target Framework"></a>
+    <a href="#"><img src="https://img.shields.io/badge/target-netstandard2.0-blue" alt="netstandard2.0"></a>
+    <a href="#"><img src="https://img.shields.io/badge/target-net48-blue" alt="net48"></a>
+    <a href="#"><img src="https://img.shields.io/badge/target-net9.0-blue" alt="net9.0"></a>
     <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
     <a href="https://github.com/gramaziokohler/compas_pb/actions"><img src="https://github.com/gramaziokohler/compas_pb/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
     <a href="https://gramaziokohler.github.io/compas_pb_csharp"><img src="https://img.shields.io/badge/docs-latest-brightgreen.svg" alt="Documentation"></a>
@@ -97,17 +99,16 @@ dotnet add path/to/YourProject.csproj package CompasPb \
 
 ## Usage
 
-Use `CompasPbSerializer` to pack and unpack data:
+Use `CompasPbSerializer` to pack and unpack data. All protobuf message types in the
+assembly are registered automatically at startup — no manual type registration needed.
 
 ### Single object
 
 ```csharp
 using CompasPb;
-using CompasPb.Data;
 
 var serializer = new CompasPbSerializer();
 
-// Pack
 var frame = new FrameData
 {
     Name = "myFrame",
@@ -116,7 +117,7 @@ var frame = new FrameData
     Yaxis = new VectorData { X = 0.0f, Y = 1.0f, Z = 0.0f },
 };
 
-// Binary
+// Binary (protobuf)
 byte[] bytes = serializer.Pack(frame);
 FrameData? unpacked = serializer.Unpack<FrameData>(bytes);
 
@@ -126,6 +127,7 @@ FrameData? fromJson = serializer.UnpackJson<FrameData>(json);
 
 // Dynamic — when you don't know the type ahead of time
 object? result = serializer.Unpack(bytes);
+object? fromJsonDynamic = serializer.UnpackJson(json);
 ```
 
 ### Nested data structures
@@ -134,7 +136,6 @@ Supports arbitrarily nested lists and dictionaries:
 
 ```csharp
 using CompasPb;
-using CompasPb.Data;
 using System.Collections.Generic;
 
 var serializer = new CompasPbSerializer();
@@ -149,8 +150,12 @@ var data = new Dictionary<string, object>
     },
 };
 
+// Works with both binary and JSON
 byte[] bytes   = serializer.Pack(data);
 object? result = serializer.Unpack(bytes);
+
+string json       = serializer.PackAsJson(data);
+object? fromJson  = serializer.UnpackJson(json);
 ```
 
 ### Dependency Injection
@@ -180,7 +185,6 @@ Use `CompasPbHttpClient` to send and receive data from a running `compas_pb` Pyt
 
 ```csharp
 using CompasPb;
-using CompasPb.Data;
 using CompasPb.Route;
 
 var serializer = new CompasPbSerializer();
