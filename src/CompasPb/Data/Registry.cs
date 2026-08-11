@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Google.Protobuf;
+using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
@@ -16,6 +17,9 @@ public static class Registry
         System.Type,
         Func<Google.Protobuf.WellKnownTypes.Any, object?>
     > _unpackDelegates = new();
+
+    // Cached Google TypeRegistry for JsonFormatter/JsonParser, built from scanned types
+    private static TypeRegistry? _jsonTypeRegistry;
 
     private static bool initialized = false;
 
@@ -33,6 +37,7 @@ public static class Registry
 
         RegisterAllTypes();
         BuildUnpackDelegates();
+        BuildJsonTypeRegistry();
         initialized = true;
     }
 
@@ -48,6 +53,9 @@ public static class Registry
             ProtoRegistry[type.Name] = type;
         }
     }
+
+    public static TypeRegistry GetJsonTypeRegistry() =>
+        _jsonTypeRegistry ?? throw new InvalidOperationException("Registry not initialized.");
 
     public static IEnumerable<System.Type> GetRegisteredTypes()
     {
@@ -114,6 +122,23 @@ public static class Registry
                 return success ? args[0] : null;
             };
         }
+    }
+
+    private static void BuildJsonTypeRegistry()
+    {
+        var descriptors = ProtoRegistry
+            .Values.Select(t =>
+            {
+                var prop = t.GetProperty(
+                    "Descriptor",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
+                );
+                return prop?.GetValue(null) as MessageDescriptor;
+            })
+            .Where(d => d is not null)
+            .Cast<MessageDescriptor>();
+
+        _jsonTypeRegistry = TypeRegistry.FromMessages(descriptors);
     }
 
     public static object? UnpackAs(Google.Protobuf.WellKnownTypes.Any any, System.Type targetType)

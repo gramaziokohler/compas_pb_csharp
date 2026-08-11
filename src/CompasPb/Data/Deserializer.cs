@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Google.Protobuf;
-using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
@@ -17,6 +16,20 @@ internal static class Deserializer
         var message = MessageData.Parser.ParseFrom(data);
         ValidateVersion(message.Version);
         return message.Data;
+    }
+
+    public static AnyData UnpackJson(string jsonString)
+    {
+        if (string.IsNullOrWhiteSpace(jsonString))
+        {
+            throw new ArgumentException(nameof(jsonString));
+        }
+        var parser = new JsonParser(
+            new JsonParser.Settings(20, Registry.GetJsonTypeRegistry())
+        );
+        MessageData messageData = parser.Parse<MessageData>(jsonString);
+        ValidateVersion(messageData.Version);
+        return messageData.Data;
     }
 
     public static object? UnpackAnyData(AnyData data, System.Type? dataType = null)

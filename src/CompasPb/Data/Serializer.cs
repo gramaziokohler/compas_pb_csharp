@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using Google.Protobuf;
-using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
@@ -19,21 +18,17 @@ internal static class Serializer
         return new MessageData { Data = data, Version = CurrentVersion }.ToByteArray();
     }
 
-    /// <summary>
-    /// Packs the given AnyData into a JSON string.
-    /// </summary>
     public static string PackAsJson(AnyData data)
     {
+        if (data is null)
+        {
+            throw new ArgumentNullException(nameof(data));
+        }
         var messageData = new MessageData { Data = data, Version = CurrentVersion };
-        var registry = TypeRegistry.FromFiles(
-            GeometryReflection.Descriptor,
-            MessageReflection.Descriptor,
-            DatastructuresReflection.Descriptor
-        );
         var formatter = new JsonFormatter(
             new JsonFormatter.Settings(false)
                 .WithFormatDefaultValues(true)
-                .WithTypeRegistry(registry)
+                .WithTypeRegistry(Registry.GetJsonTypeRegistry())
         );
         return formatter.Format(messageData);
     }

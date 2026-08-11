@@ -10,7 +10,8 @@ namespace CompasPb;
 public class CompasPbSerializer : ICompasPbSerializer
 {
     /// <inheritdoc />
-    public byte[] Pack(object? data) => Serializer.PackAsBytes(Serializer.PackAsAnyData(data));
+    public byte[] Pack(object? data) =>
+        Serializer.PackAsBytes(Serializer.PackAsAnyData(data));
 
     /// <inheritdoc />
     public object? Unpack(byte[] data) =>
@@ -22,7 +23,8 @@ public class CompasPbSerializer : ICompasPbSerializer
         Deserializer.Unpack<T>(Deserializer.UnpackBytes(data));
 
     /// <inheritdoc />
-    public string PackAsJson(object? data) => Serializer.PackAsJson(Serializer.PackAsAnyData(data));
+    public string PackAsJson(object? data) =>
+        Serializer.PackAsJson(Serializer.PackAsAnyData(data));
 
     /// <inheritdoc />
     public object? UnpackJson(string json) =>

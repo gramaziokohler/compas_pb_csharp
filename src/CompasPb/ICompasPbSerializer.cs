@@ -14,6 +14,12 @@ public interface ICompasPbSerializer
     byte[] Pack(object? data);
 
     /// <summary>
+    /// Packs the given object into a JSON string.
+    /// Uses the same MessageData envelope as the binary format.
+    /// </summary>
+    string PackAsJson(object? data);
+
+    /// <summary>
     /// Unpacks a protobuf binary byte array into an object.
     /// Returns the dynamic type (may require casting).
     /// </summary>
@@ -25,12 +31,6 @@ public interface ICompasPbSerializer
     /// <typeparam name="T">The expected protobuf message type.</typeparam>
     T? Unpack<T>(byte[] data)
         where T : class, IMessage<T>, new();
-
-    /// <summary>
-    /// Packs the given object into a JSON string.
-    /// Uses the same MessageData envelope as the binary format.
-    /// </summary>
-    string PackAsJson(object? data);
 
     /// <summary>
     /// Unpacks a JSON string into an object.
