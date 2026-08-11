@@ -22,11 +22,9 @@ internal static class Deserializer
     {
         if (string.IsNullOrWhiteSpace(jsonString))
         {
-            throw new ArgumentException(nameof(jsonString));
+            throw new ArgumentException("JSON string cannot be null or empty.", nameof(jsonString));
         }
-        var parser = new JsonParser(
-            new JsonParser.Settings(20, Registry.GetJsonTypeRegistry())
-        );
+        var parser = new JsonParser(new JsonParser.Settings(20, Registry.GetJsonTypeRegistry()));
         MessageData messageData = parser.Parse<MessageData>(jsonString);
         ValidateVersion(messageData.Version);
         return messageData.Data;
