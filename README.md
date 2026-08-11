@@ -1,16 +1,12 @@
 # COMPAS_PB C# Wrapper
 
 <p align="center">
-</p>
-
-<p align="center">
     <a href="#"><img src="https://img.shields.io/badge/C%23-12.0-239120.svg?logo=csharp" alt="C# 12.0"></a>
-    <a href="#"><img src="https://img.shields.io/badge/target-netstandard2.0-blue" alt="netstandard2.0"></a>
-    <a href="#"><img src="https://img.shields.io/badge/target-net48-blue" alt="net48"></a>
-    <a href="#"><img src="https://img.shields.io/badge/target-net9.0-blue" alt="net9.0"></a>
+    <a href="https://www.nuget.org/packages/CompasPb"><img src="https://img.shields.io/badge/.net-netstandard2.0%20|%20net48%20|%20net9.0-blue?logo=dotnet" alt="Target Frameworks"></a>
     <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
-    <a href="https://github.com/gramaziokohler/compas_pb/actions"><img src="https://github.com/gramaziokohler/compas_pb/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
-    <a href="https://gramaziokohler.github.io/compas_pb_csharp"><img src="https://img.shields.io/badge/docs-latest-brightgreen.svg" alt="Documentation"></a>
+    <!-- <a href="https://github.com/gramaziokohler/compas_pb_csharp/actions"><img src="https://github.com/gramaziokohler/compas_pb_csharp/actions/workflows/build.yml/badge.svg" alt="Build Status"></a> -->
+    <!-- <a href="https://gramaziokohler.github.io/compas_pb_csharp"><img src="https://img.shields.io/badge/docs-latest-brightgreen.svg" alt="Documentation"></a> -->
+    <a href="https://compas.dev/mission-control/#compas_pb"><img src="https://compas.dev/badge.svg" alt="Made with COMPAS"></a>
 </p>
 
 A COMPAS_PB extension which lets you serialize and deserialize COMPAS `Data` types using protobuf in C#.
