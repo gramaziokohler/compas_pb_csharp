@@ -1,5 +1,5 @@
-name: "Bump Version"
-description: "Prepare a release branch via nbgv prepare-release"
+name: "Prepare Release"
+description: "Create a versioned release branch and finalize its changelog"
 
 inputs:
   bump:
@@ -17,7 +17,7 @@ runs:
     - name: Install nbgv
       shell: bash
       run: |
-        dotnet tool install -g nbgv
+        dotnet tool install -g nbgv --version 3.9.50
         echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
     - name: Configure git
@@ -28,11 +28,11 @@ runs:
 
     - name: Prepare release branch
       shell: bash
-      run: nbgv prepare-release
+      run: bash ./bump.sh "${{ inputs.bump }}"
 
     - name: Push release branch
       shell: bash
       run: |
         BRANCH=$(git branch --show-current)
-        git push origin "$BRANCH"
+        git push --set-upstream origin "$BRANCH"
         echo "Pushed release branch: $BRANCH"

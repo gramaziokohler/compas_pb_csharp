@@ -12,7 +12,7 @@ from pathlib import Path
 import os
 
 
-compas_pb_version = "latest"
+compas_pb_version = "1.1.0"
 repo_url = "https://github.com/gramaziokohler/compas_pb"
 
 

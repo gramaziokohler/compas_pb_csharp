@@ -36,7 +36,7 @@ jobs:
         with:
           bump: ${{ inputs.bump }}
 
-  # ── Release: fires on push to main ──
+  # ── Release: fires when an untagged release version reaches main ──
   check-release:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -49,27 +49,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if this is a release merge
+      - name: Check for an untagged release
         id: check
+        shell: bash
         run: |
-          # Check if the merge came from a release/** branch
-          MERGE_MSG=$(git log -1 --pretty=%s)
-          echo "Last commit: $MERGE_MSG"
+          VERSION=$(grep -m1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md \
+            | sed -E 's/^## \[([^]]+)\].*/\1/')
+          PROJECT_VERSION=$(jq -r '.version | split("-")[0]' version.json)
 
-          if echo "$MERGE_MSG" | grep -qE "^Merge (pull request|branch) .* (from |')?release/"; then
-            # Extract version from CHANGELOG.md — first ## [x.y.z] entry
-            VERSION=$(grep -m1 "^## \[[0-9]" CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
-            if [[ -z "$VERSION" ]]; then
-              echo "ERROR: No versioned section found in CHANGELOG.md. Add ## [x.y.z] before merging."
-              exit 1
-            fi
-            echo "Release detected: $VERSION"
-            echo "is_release=true" >> $GITHUB_OUTPUT
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-          else
-            echo "Not a release merge — skipping."
-            echo "is_release=false" >> $GITHUB_OUTPUT
+          if [[ -z "$VERSION" || ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: CHANGELOG.md has no valid versioned release section."
+            exit 1
           fi
+
+          if [[ "$PROJECT_VERSION" != "$VERSION" ]]; then
+            echo "No release: project version ${PROJECT_VERSION} does not match changelog ${VERSION}."
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null \
+            || git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; then
+            echo "No release: ${VERSION} is already tagged."
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Release detected: ${VERSION}"
+          echo "is_release=true" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
   build-and-test:
     needs: [check-release]
@@ -190,6 +198,10 @@ jobs:
     needs: [check-release, build-and-test]
     if: needs.check-release.outputs.is_release == 'true'
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
 
     defaults:
       run:
@@ -220,16 +232,46 @@ jobs:
         run: dotnet restore
 
       - name: Pack
+        shell: bash
         run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
           dotnet pack CompasPb.csproj \
             --configuration Release \
             --no-restore \
+            -p:PublicRelease=true \
             -o ${{ github.workspace }}/nupkg
 
-      - name: Push to NuGet.org
+          test -f "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg"
+
+      - name: Check NuGet account configuration
+        shell: bash
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
         run: |
-          dotnet nuget push "${{ github.workspace }}/nupkg/*.nupkg" \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+          if [[ -z "$NUGET_USER" ]]; then
+            echo "ERROR: Add NUGET_USER to the repository's Actions variables."
+            exit 1
+          fi
+
+      - name: NuGet login (OIDC to temporary API key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to NuGet.org
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+          dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.snupkg" \
+            --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
@@ -242,16 +284,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Dotnet
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "9.0.x"
-
-      - name: Install nbgv
-        run: |
-          dotnet tool install -g nbgv
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Create and push tag
         run: |

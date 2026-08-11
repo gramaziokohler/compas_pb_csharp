@@ -15,7 +15,85 @@ A COMPAS_PB extension which lets you serialize and deserialize COMPAS `Data` typ
 
 ## Installation
 
-Coming soon...
+`CompasPb` is distributed as a NuGet package. Version `1.0.0` contains the generated
+C# bindings and runtime support for the `compas_pb` 1.1 wire format; consumers do
+not need to generate protobuf sources or copy DLLs into their projects manually.
+
+### Install from NuGet
+
+From the directory containing your project file, use the .NET CLI:
+
+```bash
+dotnet add package CompasPb --version 1.0.0
+```
+
+Or use the NuGet Package Manager Console in Visual Studio:
+
+```powershell
+Install-Package CompasPb -Version 1.0.0
+```
+
+You can also add the package reference directly to your `.csproj` file:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="CompasPb" Version="1.0.0" />
+</ItemGroup>
+```
+
+Restore the project after editing the project file directly:
+
+```bash
+dotnet restore
+```
+
+NuGet restores `Google.Protobuf`, `Newtonsoft.Json`, and any framework-specific
+dependencies transitively.
+
+### Supported target frameworks
+
+The package provides assemblies for:
+
+| Target framework | Typical consumers |
+| --- | --- |
+| `netstandard2.0` | Unity, Grasshopper, and other .NET Standard-compatible applications |
+| `net48` | Rhino and other .NET Framework 4.8 applications |
+| `net9.0` | Current .NET applications and services |
+
+Your application only needs to target one compatible framework. The .NET 9 SDK is
+required to build this repository itself, but it is not required merely to consume
+the `netstandard2.0` or `net48` package assets.
+
+### Build from source
+
+Building the repository requires Git, Python 3, and the .NET 9 SDK. The generated
+C# protobuf files are intentionally not committed; the fetch script downloads the
+pinned `compas_pb` 1.1 release assets before the build.
+
+```bash
+git clone https://github.com/gramaziokohler/compas_pb_csharp.git
+cd compas_pb_csharp
+python3 fetch_compas_pb.py
+dotnet restore
+dotnet build src/CompasPb/CompasPb.csproj --configuration Release
+dotnet test test/CompasPb.Test.csproj --configuration Release
+```
+
+To create a local NuGet package from a release checkout:
+
+```bash
+dotnet pack src/CompasPb/CompasPb.csproj \
+  --configuration Release \
+  --output ./artifacts
+```
+
+Then add `./artifacts` as a package source, or reference it for a one-off install:
+
+```bash
+dotnet add path/to/YourProject.csproj package CompasPb \
+  --version 1.0.0 \
+  --source ./artifacts
+```
 
 ## Usage
 
