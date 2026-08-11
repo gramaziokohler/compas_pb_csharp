@@ -1,102 +1,141 @@
-# Development
+# Development Guide
 
-## Prerequisites
+## Versioning & Releases
 
-- [.NET SDK 9.0](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [Python 3.12+](https://www.python.org/downloads/) (for fetching proto files)
+This repo uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (`nbgv`) to stamp every build with a version derived from `version.json` and git history.
 
-## Build
+### Scheme
 
-```bash
-dotnet build src/CompasPb/CompasPb.csproj --configuration Release
+Standard SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.1.0`, `0.2.0`, `1.0.0`).
+
+### Version source
+
+The version is read from `version.json`:
+
+```json
+{ "version": "1.0.0" }
 ```
 
-## Run tests
-
-```bash
-dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal
-```
-
-## Run example
-
-```bash
-dotnet run --project example/UserCase/CompasPb.UserCase.csproj
-```
-
-## Fetch proto files
-
-Proto-generated C# files are fetched from the upstream [compas_pb](https://github.com/gramaziokohler/compas_pb) Python package release:
-
-```bash
-python fetch_compas_pb.py
-```
-
-## Formatting
-
-This project uses [CSharpier](https://csharpier.com/) for code formatting:
-
-```bash
-dotnet tool install -g csharpier
-csharpier check .
-csharpier format .
-```
-
-## Release
-
-### How to release
-
-1. Run the **bump** workflow manually (Actions > release > Run workflow), choose `patch`, `minor`, or `major`
-2. The bump action creates a `release/x.y.z` branch with an updated `CHANGELOG.md`
-3. Open a PR from `release/x.y.z` into `main`, review, and merge
-4. On merge to main, CI checks the merge commit message for `release/` branch name
-5. If detected, CI runs build + test, then:
-   - Publishes platform artifacts (Windows, macOS)
-   - Pushes NuGet package to nuget.org
-   - Creates a git tag `vx.y.z`
-   - Creates a GitHub Release with zipped artifacts
-
-<!-- ### When release does NOT trigger
-
-Any merge to main from a non-`release/` branch is ignored. The CI checks:
-
-```
-git log -1 --pretty=%s  →  "Merge pull request #N from org/release/x.y.z"
-```
-
-If the branch name doesn't start with `release/`, the workflow exits with `is_release=false`.
-
-Examples:
-- `chore/add-versioning` — skipped
-- `fix/something` — skipped
-- `refactor/deserializer` — skipped
-- `release/1.0.0` — triggers release
-
-### Pipeline
-
-```
-workflow_dispatch (bump)
-    │
-    ▼
-release/x.y.z branch created
-    │
-    ▼
-PR merged to main
-    │
-    ▼
-check-release ── is merge from release/*?
-    │                     │
-    no → skip             yes
-                          │
-                          ▼
-                  build-and-test (windows + macos)
-                          │
-                    ┌─────┴─────┐
-                    ▼           ▼
-                publish    nuget-publish
-                    │           │
-                    └─────┬─────┘
-                          ▼
-                  release (tag + GitHub Release)
-``` -->
+The release-preparation workflow calculates the next version from the latest
+semantic-version tag and the selected `patch`, `minor`, or `major` increment. It
+uses `nbgv set-version` to update `version.json`; `nbgv` then stamps assemblies and
+packages consistently from that version and the Git history.
 
 ---
+
+## How to release
+
+1. Add every user-visible change to `CHANGELOG.md` under `## [Unreleased]`.
+2. Open **Actions → release → Run workflow** on the `main` branch.
+3. Select the required `patch`, `minor`, or `major` increment.
+4. The workflow creates and pushes `release/vX.Y.Z`, updates `version.json`, and
+   moves the unreleased changelog entries under `## [X.Y.Z] - YYYY-MM-DD`.
+5. Open a pull request from `release/vX.Y.Z` to `main` and review the version and
+   changelog changes.
+6. Merge the release pull request. The push to `main` validates, packages,
+   publishes, tags, and creates the GitHub release automatically.
+
+For the first stable release from `0.1.0`, select **major** to prepare `1.0.0`.
+
+To prepare a release locally instead of using Actions:
+
+```bash
+dotnet tool install --global nbgv --version 3.9.50
+bash ./bump.sh major
+git push --set-upstream origin release/v1.0.0
+```
+
+---
+
+## What CI does on merge
+
+On every push to `main`, `release.yml` compares the first versioned changelog
+section with `version.json` and the existing release tags. If the versions match
+and neither `vX.Y.Z` nor the legacy `X.Y.Z` tag exists, it automatically:
+
+1. Runs the format check, build, and tests on Windows and macOS.
+2. Builds the platform release artifacts.
+3. Packs and publishes `CompasPb.X.Y.Z.nupkg` and its symbol package to NuGet.org.
+4. Creates and pushes tag `vX.Y.Z`.
+5. Creates the GitHub release and attaches the platform artifacts.
+
+Ordinary pushes do not publish when the changelog version differs from
+`version.json` or the version already has a release tag.
+
+### NuGet Trusted Publishing
+
+NuGet publication uses GitHub OIDC and NuGet.org Trusted Publishing. The workflow
+does not store a long-lived API key; `NuGet/login` exchanges the job's OIDC token
+for a temporary NuGet API key immediately before the package push.
+
+Configure the trusted publisher on NuGet.org:
+
+1. Sign in to [nuget.org](https://www.nuget.org/) with the account that should own
+   `CompasPb`, then open **Trusted Publishing** from the account menu.
+2. Add a GitHub Actions policy owned by the appropriate NuGet user or organization.
+3. Enter these case-insensitive policy values:
+
+   | Policy field | Value |
+   |---|---|
+   | Repository owner | `gramaziokohler` |
+   | Repository | `compas_pb_csharp` |
+   | Workflow file | `release.yml` |
+   | Environment | `release` |
+
+   Enter only the workflow filename, not `.github/workflows/release.yml`.
+4. In the GitHub repository, open **Settings → Secrets and variables → Actions →
+   Variables** and create `NUGET_USER`. Set it to the NuGet.org profile name that
+   authenticates the publication, not an email address. The policy itself may be
+   owned by that user or by an organization they belong to.
+5. Optionally configure protection rules or required reviewers for the GitHub
+   `release` environment.
+
+The `nuget-publish` job has only `contents: read` and `id-token: write` permissions.
+NuGet.org validates the repository, workflow, environment, and policy owner before
+issuing a temporary credential. No `NUGET_API_KEY` repository secret is required.
+
+For some repositories, a new trusted-publishing policy is temporarily active for
+seven days until its first successful publication establishes the immutable GitHub
+repository and owner IDs. Restart that activation window in NuGet.org if it expires
+before the release runs.
+
+---
+
+## Quick reference
+
+| Bump type | How |
+|---|---|
+| **patch** `1.0.0 → 1.0.1` | Run `release` on `main` with `patch` |
+| **minor** `1.0.x → 1.1.0` | Run `release` on `main` with `minor` |
+| **major** `0.x.x → 1.0.0` | Run `release` on `main` with `major` |
+
+| Action | Command |
+|---|---|
+| Show current version | `nbgv get-version` |
+| Show NuGet version | `nbgv get-version -v NuGetPackageVersion` |
+| Install nbgv | `dotnet tool install --global nbgv` |
+
+---
+
+## Version properties during build
+
+nbgv populates these MSBuild properties automatically:
+
+| Property | Example |
+|---|---|
+| `$(Version)` | `0.2.0` |
+| `$(AssemblyVersion)` | `0.2.0.0` |
+| `$(FileVersion)` | `0.2.0` |
+| `$(InformationalVersion)` | `0.2.0+abc1234` |
+
+On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`), controlled by `publicReleaseRefSpec` in `version.json`.
+
+---
+
+## CI Workflows
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `build.yml` | Push / PR to `main` | Format check, build, test |
+| `release.yml` | Manual dispatch | Prepare and push a versioned release branch |
+| `release.yml` | Push to `main` | Detect an untagged release, publish it, tag it, and create the GitHub Release |

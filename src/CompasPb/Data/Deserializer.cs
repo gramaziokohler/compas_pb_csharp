@@ -8,173 +8,129 @@ namespace CompasPb.Data;
 
 internal static class Deserializer
 {
-    /// <summary>
-    /// Unpacks a byte array into an AnyData.
-    /// </summary>
-    /// <returns></returns>
     public static AnyData UnpackBytes(byte[] data)
     {
-        MessageData messageData = MessageData.Parser.ParseFrom(data);
-        GetVersion(messageData.Version);
-        return messageData.Data;
+        if (data is null)
+        {
+            throw new ArgumentNullException(nameof(data));
+        }
+        var message = MessageData.Parser.ParseFrom(data);
+        ValidateVersion(message.Version);
+        return message.Data;
     }
 
-    /// <summary>
-    /// Unpacks a JSON string into an AnyData.
-    /// </summary>
-    public static AnyData UnpackJson(string json)
-    {
-        var registry = TypeRegistry.FromFiles(
-            GeometryReflection.Descriptor,
-            MessageReflection.Descriptor,
-            DatastructuresReflection.Descriptor
-        );
-        var parser = new JsonParser(new JsonParser.Settings(20, registry));
-        MessageData messageData = parser.Parse<MessageData>(json);
-        GetVersion(messageData.Version);
-        return messageData.Data;
-    }
-
-    /// <summary>
-    /// Unpacks the given AnyData into an object. Dispatch is driven by the
-    /// generated DataOneofCase enum (compile-time exhaustive over the protobuf
-    /// oneof). The optional dataType overrides Registry lookup for the Message case.
-    /// </summary>
-    /// <returns></returns>
     public static object? UnpackAnyData(AnyData data, System.Type? dataType = null)
     {
-        if (data == null)
+        if (data is null)
         {
-            throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
+            throw new ArgumentNullException(nameof(data));
         }
 
         return data.DataCase switch
         {
-            AnyData.DataOneofCase.Value => UnpackPrimitive(data.Value),
+            AnyData.DataOneofCase.Value => UnpackValue(data.Value),
+            AnyData.DataOneofCase.IntValue => data.IntValue,
+            AnyData.DataOneofCase.DoubleValue => data.DoubleValue,
+            AnyData.DataOneofCase.DictValue => UnpackDict(data.DictValue),
+            AnyData.DataOneofCase.ListValue => UnpackList(data.ListValue),
+            AnyData.DataOneofCase.Fallback => UnpackDict(data.Fallback.Data),
             AnyData.DataOneofCase.Message => UnpackMessage(data.Message, dataType),
-            AnyData.DataOneofCase.Fallback => UnpackFallback(data.Fallback),
             AnyData.DataOneofCase.None => null,
-            _ => null,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(data),
+                data.DataCase,
+                "Unknown AnyData variant."
+            ),
         };
     }
 
-    /// <summary>
-    /// Unpacks the given AnyData into an object of type T.
-    /// </summary>
-    /// <returns></returns>
     public static T? Unpack<T>(AnyData data)
         where T : class, IMessage<T>, new()
     {
-        if (data == null)
+        if (data is null)
         {
-            throw new ArgumentNullException(nameof(data), "AnyData to unpack cannot be null.");
+            throw new ArgumentNullException(nameof(data));
         }
-
-        return data.Message != null && data.Message.TryUnpack<T>(out T result) ? result : null;
+        return data.Message is not null && data.Message.TryUnpack<T>(out var result)
+            ? result
+            : null;
     }
 
-    public static System.Type? GetType(AnyData data)
+    public static System.Type? GetType(AnyData data) =>
+        data is not null && data.DataCase == AnyData.DataOneofCase.Message
+            ? Registry.GetType(data.Message.TypeUrl)
+            : null;
+
+    private static object? UnpackMessage(Any message, System.Type? dataType)
     {
-        if (data?.Message == null)
+        if (message.TryUnpack<ListData>(out var list))
         {
-            return null;
+            return UnpackList(list);
+        }
+        if (message.TryUnpack<DictData>(out var dictionary))
+        {
+            return UnpackDict(dictionary);
         }
 
-        string typeUrl = data.Message.TypeUrl;
-        if (string.IsNullOrEmpty(typeUrl))
-        {
-            return null;
-        }
-
-        return Registry.GetType(typeUrl);
+        dataType ??= Registry.GetType(message.TypeUrl);
+        return dataType is null ? null : Registry.UnpackAs(message, dataType);
     }
 
-    private static object? UnpackMessage(Any any, System.Type? dataType)
+    private static List<object?> UnpackList(ListData data)
     {
-        if (any == null)
-        {
-            return null;
-        }
-
-        // Structured containers: match via generated protobuf descriptor.
-        // TryUnpack<T> checks TypeUrl against T's descriptor and returns false on mismatch
-        // (no exception), so chaining is safe and avoids reflection at this layer.
-        if (any.TryUnpack<ListData>(out var listData))
-        {
-            return UnpackListItems(listData);
-        }
-        if (any.TryUnpack<DictData>(out var dictData))
-        {
-            return UnpackDictItems(dictData);
-        }
-
-        // Plain IMessage: caller-provided type wins, else Registry lookup.
-        dataType ??= Registry.GetType(any.TypeUrl);
-        return dataType == null ? null : UnpackAs(any, dataType);
-    }
-
-    private static List<object?> UnpackListItems(ListData listData)
-    {
-        var result = new List<object?>(listData.Items.Count);
-        foreach (var item in listData.Items)
+        var result = new List<object?>(data.Items.Count);
+        foreach (var item in data.Items)
         {
             result.Add(UnpackAnyData(item));
         }
         return result;
     }
 
-    private static Dictionary<string, object?> UnpackDictItems(DictData dictData)
+    private static Dictionary<string, object?> UnpackDict(DictData data)
     {
-        var result = new Dictionary<string, object?>(dictData.Items.Count);
-        foreach (var kvp in dictData.Items)
+        var result = new Dictionary<string, object?>(data.Items.Count);
+        foreach (var item in data.Items)
         {
-            result[kvp.Key] = UnpackAnyData(kvp.Value);
+            result[item.Key] = UnpackAnyData(item.Value);
         }
         return result;
     }
 
-    private static Dictionary<string, object?> UnpackFallback(FallbackData fallback)
-    {
-        return fallback.Data == null
-            ? new Dictionary<string, object?>()
-            : UnpackDictItems(fallback.Data);
-    }
-
-    private static object? UnpackPrimitive(Value value)
-    {
-        if (value == null)
-        {
-            return null;
-        }
-
-        return value.KindCase switch
+    private static object? UnpackValue(Value value) =>
+        value.KindCase switch
         {
             Value.KindOneofCase.NullValue => null,
-            Value.KindOneofCase.NumberValue => value.NumberValue,
             Value.KindOneofCase.BoolValue => value.BoolValue,
+            Value.KindOneofCase.NumberValue => value.NumberValue,
+            Value.KindOneofCase.StringValue
+                when value.StringValue.StartsWith("base64:", StringComparison.Ordinal) =>
+                Convert.FromBase64String(value.StringValue.Substring(7)),
             Value.KindOneofCase.StringValue => value.StringValue,
-            _ => null,
+            _ => throw new InvalidOperationException(
+                $"Unsupported protobuf Value kind: {value.KindCase}."
+            ),
         };
-    }
 
-    private static object? UnpackAs(Any anyData, System.Type targetType)
+    private static void ValidateVersion(string version)
     {
-        if (anyData == null || targetType == null)
+        if (string.IsNullOrWhiteSpace(version))
         {
-            return null;
-        }
-
-        return Registry.UnpackAs(anyData, targetType);
-    }
-
-    private static void GetVersion(string version)
-    {
-        string currentVersion = PackageInfo.Version;
-        if (version != currentVersion)
-        {
-            Console.WriteLine(
-                $"Warning: Version mismatch. Data version: {version}, Current version: {currentVersion}"
+            throw new InvalidOperationException(
+                $"The protobuf payload has no compas_pb version; reader is {PackageInfo.Version}."
             );
         }
+
+        if (WireCompatibilityKey(version) != WireCompatibilityKey(PackageInfo.Version))
+        {
+            throw new InvalidOperationException(
+                $"Incompatible compas_pb wire format: payload is {version}, reader is {PackageInfo.Version}."
+            );
+        }
+    }
+
+    private static string WireCompatibilityKey(string version)
+    {
+        var parts = version.Split('.');
+        return parts[0] == "0" && parts.Length > 1 ? $"0.{parts[1]}" : parts[0];
     }
 }

@@ -1,64 +1,80 @@
 #!/bin/bash
 # Usage: ./bump.sh [patch|minor|major]
-# Mirrors bump-my-version behavior from compas_pb Python repo.
-# Reads current version from latest git tag, bumps it,
-# updates CHANGELOG.md and version.json, then commits and tags.
+# Creates a release branch from the latest release tag, updates version.json,
+# and moves the Unreleased changelog entries under the new release version.
 
-set -e
+set -euo pipefail
 
 BUMP=${1:-patch}
+NBGV_COMMAND=${NBGV_COMMAND:-nbgv}
 
 if [[ "$BUMP" != "patch" && "$BUMP" != "minor" && "$BUMP" != "major" ]]; then
     echo "Usage: ./bump.sh [patch|minor|major]"
     exit 1
 fi
 
-# Read current version from latest git tag
-CURRENT=$(git tag --list "v*" --sort=-version:refname | head -1)
-if [[ -z "$CURRENT" ]]; then
-    echo "No version tag found. Create an initial tag first: git tag v0.1.0"
+if [[ -n "${GITHUB_ACTIONS:-}" && "${GITHUB_REF_NAME:-}" != "main" ]]; then
+    echo "ERROR: Run the release preparation workflow from the main branch."
     exit 1
 fi
 
-CURRENT="${CURRENT#v}"  # strip leading "v"
-IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+CURRENT_TAG=$(git tag --list | sed -nE 's/^v?([0-9]+\.[0-9]+\.[0-9]+)$/\1/p' | sort -V | tail -1)
 
-# Bump
-case "$BUMP" in
-    major) NEW="$((MAJOR + 1)).0.0" ;;
-    minor) NEW="${MAJOR}.$((MINOR + 1)).0" ;;
-    patch) NEW="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
-esac
-
-TAG="v$NEW"
-DATE=$(date +%Y-%m-%d)
-
-echo "Bumping $CURRENT → $NEW ($BUMP)"
-
-# Update version.json
-python3 -c "
-import json
-with open('version.json') as f:
-    data = json.load(f)
-data['version'] = '$NEW'
-with open('version.json', 'w') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-"
-
-# Update CHANGELOG.md — replace ## [Unreleased] with versioned header
-if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
-    echo "Warning: No '## [Unreleased]' section found in CHANGELOG.md — skipping changelog update."
-else
-    sed -i.bak "s/## \[Unreleased\]/## [$NEW] - $DATE/" CHANGELOG.md
-    rm -f CHANGELOG.md.bak
+if [[ -z "$CURRENT_TAG" ]]; then
+    echo "ERROR: No semantic-version release tag found."
+    exit 1
 fi
 
-# Commit and tag
-git add version.json CHANGELOG.md
-git commit -m "Bump version to $NEW"
-git tag "$TAG"
+IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_TAG"
 
-echo ""
-echo "Version bumped to $NEW and tagged as $TAG."
-echo "Run: git push --follow-tags"
+case "$BUMP" in
+    major) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
+    minor) NEW_VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+    patch) NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+esac
+
+RELEASE_BRANCH="release/v${NEW_VERSION}"
+RELEASE_DATE=$(date +%Y-%m-%d)
+
+if git show-ref --verify --quiet "refs/heads/${RELEASE_BRANCH}"; then
+    echo "ERROR: Local branch ${RELEASE_BRANCH} already exists."
+    exit 1
+fi
+
+if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+    echo "ERROR: Remote branch ${RELEASE_BRANCH} already exists."
+    exit 1
+fi
+
+if ! grep -q '^## \[Unreleased\]$' CHANGELOG.md; then
+    echo "ERROR: CHANGELOG.md has no [Unreleased] section."
+    exit 1
+fi
+
+if grep -q "^## \[${NEW_VERSION}\]" CHANGELOG.md; then
+    echo "ERROR: CHANGELOG.md already contains ${NEW_VERSION}."
+    exit 1
+fi
+
+git switch -c "$RELEASE_BRANCH"
+"$NBGV_COMMAND" set-version "$NEW_VERSION"
+
+CHANGELOG_TMP=$(mktemp)
+trap 'rm -f "$CHANGELOG_TMP"' EXIT
+
+awk -v release_header="## [${NEW_VERSION}] - ${RELEASE_DATE}" '
+    $0 == "## [Unreleased]" {
+        print
+        print ""
+        print release_header
+        next
+    }
+    { print }
+' CHANGELOG.md > "$CHANGELOG_TMP"
+mv "$CHANGELOG_TMP" CHANGELOG.md
+trap - EXIT
+
+git add version.json CHANGELOG.md
+git commit -m "Prepare release ${NEW_VERSION}"
+
+echo "Prepared ${RELEASE_BRANCH} for CompasPb ${NEW_VERSION}."

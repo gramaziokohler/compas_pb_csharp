@@ -44,4 +44,8 @@
             Visible="false"
         />
     </ItemGroup>
+
+    <ItemGroup Label="Interop Fixtures">
+        <None Include="Fixtures/compas_pb_1_1_model.b64" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
 </Project>

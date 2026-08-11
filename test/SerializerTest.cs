@@ -12,7 +12,7 @@ public class SerializerTest
     {
         var bytes = _serializer.Pack(42);
         var result = _serializer.Unpack(bytes);
-        Assert.Equal(42.0, result); // protobuf Value stores numbers as double
+        Assert.Equal(42L, result);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class SerializerTest
 
         var list = Assert.IsType<List<object?>>(result);
         Assert.Equal(3, list.Count);
-        Assert.Equal(1.0, list[0]);
+        Assert.Equal(1L, list[0]);
         Assert.Equal("two", list[1]);
         Assert.Equal(true, list[2]);
     }
@@ -69,7 +69,7 @@ public class SerializerTest
         var result = _serializer.Unpack(bytes);
 
         var dict = Assert.IsType<Dictionary<string, object?>>(result);
-        Assert.Equal(1.0, dict["x"]);
+        Assert.Equal(1L, dict["x"]);
         Assert.Equal("point", dict["label"]);
     }
 
@@ -158,6 +158,31 @@ public class SerializerTest
         Assert.Equal(2, outer.Count);
         var inner = Assert.IsType<List<object?>>(outer[0]);
         Assert.Equal(3, inner.Count);
+    }
+
+    [Fact]
+    public void Pack_UsesDirectContainerAndNumericArms()
+    {
+        var integer = Serializer.PackAsAnyData(42);
+        var floatingPoint = Serializer.PackAsAnyData(42.0);
+        var list = Serializer.PackAsAnyData(new List<object>());
+        var dictionary = Serializer.PackAsAnyData(new Dictionary<string, object>());
+
+        Assert.Equal(AnyData.DataOneofCase.IntValue, integer.DataCase);
+        Assert.Equal(AnyData.DataOneofCase.DoubleValue, floatingPoint.DataCase);
+        Assert.Equal(AnyData.DataOneofCase.ListValue, list.DataCase);
+        Assert.Equal(AnyData.DataOneofCase.DictValue, dictionary.DataCase);
+    }
+
+    [Fact]
+    public void RoundTrip_Bytes_UsesPythonCompatibleBase64Prefix()
+    {
+        byte[] input = [0, 1, 2, 254, 255];
+
+        var bytes = _serializer.Pack(input);
+        var result = Assert.IsType<byte[]>(_serializer.Unpack(bytes));
+
+        Assert.Equal(input, result);
     }
 
     [Fact]
