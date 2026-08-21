@@ -67,4 +67,14 @@ public class RegistryTest
         var result = Registry.GetType("type.googleapis.com/some.unknown.Type");
         Assert.Null(result);
     }
+
+    [Fact]
+    public void RegisterAssembly_SameAssembly_DoesNotThrow()
+    {
+        // Re-registering the same assembly is a no-op (idempotent)
+        Registry.RegisterAssembly(typeof(Registry).Assembly);
+
+        var result = Registry.GetType("compas_pb.data.PointData");
+        Assert.Equal(typeof(PointData), result);
+    }
 }

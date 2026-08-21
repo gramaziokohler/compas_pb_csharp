@@ -47,6 +47,21 @@ public static class Registry
         RegisterAssemblyTypes(typeof(Registry).Assembly);
     }
 
+    /// <summary>
+    /// Registers all IMessage types from the given assembly.
+    /// Call this from your plugin startup to register types from external assemblies.
+    /// Safe to call multiple times -- already-registered types are overwritten idempotently.
+    /// </summary>
+    /// <example>
+    /// <code>Registry.RegisterAssembly(typeof(MyCustomMessage).Assembly);</code>
+    /// </example>
+    public static void RegisterAssembly(System.Reflection.Assembly assembly)
+    {
+        RegisterAssemblyTypes(assembly);
+        BuildUnpackDelegates();
+        BuildJsonTypeRegistry();
+    }
+
     private static void RegisterAssemblyTypes(Assembly assembly)
     {
         var types = assembly
