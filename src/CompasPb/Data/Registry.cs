@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
@@ -43,14 +44,29 @@ public static class Registry
 
     private static void RegisterAllTypes()
     {
-        // register all IMessage types in the assembly
-        var types = typeof(Registry)
-            .Assembly.GetTypes()
+        RegisterAssemblyTypes(typeof(Registry).Assembly);
+    }
+
+    private static void RegisterAssemblyTypes(Assembly assembly)
+    {
+        var types = assembly
+            .GetTypes()
             .Where(t => typeof(IMessage).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass);
 
         foreach (var type in types)
         {
+            // Register by simple class name (backward compat)
             ProtoRegistry[type.Name] = type;
+
+            // Register by full protobuf name via the Descriptor property
+            var descriptorProp = type.GetProperty(
+                "Descriptor",
+                BindingFlags.Public | BindingFlags.Static
+            );
+            if (descriptorProp?.GetValue(null) is MessageDescriptor descriptor)
+            {
+                ProtoRegistry[descriptor.FullName] = type;
+            }
         }
     }
 
@@ -69,29 +85,30 @@ public static class Registry
             return null;
         }
 
-        // Handle full type URL
-        if (typeUrl.StartsWith("type.googleapis.com/"))
-        {
-            typeUrl = typeUrl.Substring("type.googleapis.com/".Length);
-        }
+        // Strip the type.googleapis.com/ prefix if present
+        var fullName = typeUrl.StartsWith("type.googleapis.com/")
+            ? typeUrl.Substring("type.googleapis.com/".Length)
+            : typeUrl;
 
-        // Try direct lookup first (full name like "compas_pb.data.FrameData")
-        if (ProtoRegistry.TryGetValue(typeUrl, out var type))
+        // Try direct lookup by full protobuf name (e.g. "compas_pb.data.PointData")
+        if (ProtoRegistry.TryGetValue(fullName, out var type))
         {
             return type;
         }
 
-        // Try simple name lookup (just "FrameData")
-        string simpleName = typeUrl.Contains('.') ? typeUrl.Split('.').Last() : typeUrl;
+        // Try simple name lookup (e.g. "PointData") for backward compatibility
+        string simpleName = fullName.Contains("/")
+            ? fullName.Substring(fullName.LastIndexOf('/') + 1)
+            : fullName.Contains(".")
+                ? fullName.Substring(fullName.LastIndexOf('.') + 1)
+                : fullName;
+
         if (ProtoRegistry.TryGetValue(simpleName, out type))
         {
             return type;
         }
 
-        // Fallback: search by simple type name or full name
-        return ProtoRegistry.Values.FirstOrDefault(t =>
-            t.Name == simpleName || t.FullName == typeUrl
-        );
+        return null;
     }
 
     private static void RegisterType<T>()

@@ -50,4 +50,21 @@ public class RegistryTest
 
         Assert.Null(result);
     }
+
+    [Theory]
+    [InlineData("type.googleapis.com/compas_pb.data.PointData", typeof(PointData))]
+    [InlineData("compas_pb.data.PointData", typeof(PointData))]
+    [InlineData("PointData", typeof(PointData))]
+    public void GetType_ResolvesTypeUrl(string typeUrl, System.Type expected)
+    {
+        var result = Registry.GetType(typeUrl);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void GetType_UnknownTypeUrl_ReturnsNull()
+    {
+        var result = Registry.GetType("type.googleapis.com/some.unknown.Type");
+        Assert.Null(result);
+    }
 }
