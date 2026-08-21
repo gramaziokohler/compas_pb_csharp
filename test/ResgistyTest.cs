@@ -1,3 +1,4 @@
+using CompasPb;
 using CompasPb.Data;
 using Google.Protobuf.WellKnownTypes;
 using Xunit;
@@ -76,5 +77,16 @@ public class RegistryTest
 
         var result = Registry.GetType("compas_pb.data.PointData");
         Assert.Equal(typeof(PointData), result);
+    }
+
+    [Fact]
+    public void CompasPbRegistrationAttribute_IsAssemblyTargeted()
+    {
+        var attr = typeof(CompasPbRegistrationAttribute);
+        var usage = (System.AttributeUsageAttribute)System.Attribute.GetCustomAttribute(
+            attr,
+            typeof(System.AttributeUsageAttribute)
+        )!;
+        Assert.Equal(System.AttributeTargets.Assembly, usage.ValidOn);
     }
 }
