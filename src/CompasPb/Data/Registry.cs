@@ -126,14 +126,6 @@ public static class Registry
         return null;
     }
 
-    private static void RegisterType<T>()
-        where T : IMessage<T>
-    {
-        var type = typeof(T);
-        var typeUrl = $"type.googleapis.com/{type.FullName}";
-        ProtoRegistry.TryAdd(typeUrl, type);
-    }
-
     private static void BuildUnpackDelegates()
     {
         var tryUnpackMethod = typeof(Google.Protobuf.WellKnownTypes.Any)
