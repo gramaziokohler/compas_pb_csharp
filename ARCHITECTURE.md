@@ -16,12 +16,33 @@ This document covers how `compas_pb_csharp` fulfils that contract.
 
 ## Two kinds of package
 
+> **Read first:**
+> [compas_pb Architecture](https://github.com/gramaziokohler/compas_pb/blob/main/docs/architecture.md)
+> explains the full ecosystem design. This section summarizes how `compas_pb_csharp`
+> fits into it.
+
+Every package in the `compas_pb` ecosystem is one of two things:
+
 | | Domain model owner | Language runtime |
 | --- | --- | --- |
-| **Examples** | `compas_pb`, `antikythera`, `compas_timber` | `compas_pb`, `compas_pb_ts`, **`compas_pb_csharp`** |
+| **Role** | Defines data types for a problem domain | Provides the registry and codec for one language |
 | **Owns** | `.proto` files and the domain classes they mirror | registry, discovery, recursive codec |
 | **Publishes** | proto bundle + generated bindings, every release | a serialization library for one language |
 | **Knows about** | its own types only | no domain types at all |
+
+Concrete examples:
+
+| Package | Role | What it owns |
+| --- | --- | --- |
+| `compas_pb` (Python) | **Both** (runtime + domain owner) | COMPAS core types (`Point`, `Frame`, `Mesh`, ...) + Python codec |
+| **`compas_pb_csharp`** | **Runtime only** | C# registry and codec, no domain types |
+| `compas_pb_ts` | **Runtime only** | TypeScript registry and codec |
+| `antikythera` | **Domain owner only** | Robot task planning types |
+| `compas_timber` | **Domain owner only** | Timber construction types |
+
+`compas_pb` is both a runtime and a domain owner because the COMPAS core types
+(`Point`, `Frame`, `Mesh`) have not been upstreamed into `compas` core yet.
+Every other package is cleanly one or the other.
 
 This runtime never imports a domain package, and a domain package never
 implements codec logic. They meet at the registry.
@@ -112,10 +133,13 @@ their CLR types. At startup it scans its own assembly. Third-party assemblies
 register via:
 
 ```csharp
-Registry.RegisterAssembly(typeof(MyCustomMessage).Assembly);
+// In a Grasshopper plugin's OnLoadAssembly, Unity's Awake(), or any startup path
+Registry.RegisterAssembly(typeof(TaskAssignmentMessageData).Assembly);
 ```
 
-This is safe to call multiple times (idempotent) and works on all targets:
+The call scans the assembly for all `IMessage` types, registers them by both
+simple and full protobuf name, and rebuilds the unpack delegate and JSON type
+caches. Safe to call multiple times (idempotent) and works on all targets:
 .NET Standard 2.0 (Unity), .NET Framework 4.8 (Rhino/Grasshopper), and .NET 9.
 
 ### Type URL resolution
@@ -134,12 +158,62 @@ contract.
 An assembly-level marker attribute that domain packages can apply:
 
 ```csharp
+// In the domain package's AssemblyInfo.cs or any top-level file
 [assembly: CompasPb.CompasPbRegistration]
+
+// In the domain package's startup (e.g. Grasshopper GH_AssemblyInfo)
+public override void OnLoadAssembly(GH_LoadingInstruction instruction)
+{
+    Registry.RegisterAssembly(typeof(TaskAssignmentMessageData).Assembly);
+}
 ```
 
-Today this is a convention — you must still call `RegisterAssembly` explicitly.
-It exists so a future version can scan for marked assemblies automatically,
-without consumers needing to change their code.
+Today the attribute is a convention — you must still call `RegisterAssembly`
+explicitly. It exists so a future version can scan for marked assemblies
+automatically, without consumers needing to change their startup code.
+
+### Example: using third-party domain types
+
+Domain owners define `.proto` files in their own repos. `compas_pb`'s build
+tasks generate C# bindings, and the domain owner publishes them (as a NuGet
+package or release asset). The C# consumer installs the bindings and registers
+the assembly -- no changes to `compas_pb_csharp` needed.
+
+```csharp
+using CompasPb;
+using CompasPb.Data;
+using Kumiki.Data;  // from the domain package's generated C# bindings
+
+// At startup -- register the domain package's types with the runtime
+Registry.RegisterAssembly(typeof(KumikiWallData).Assembly);
+
+// Pack/Unpack now works for kumiki types
+var serializer = new CompasPbSerializer();
+
+var wall = new KumikiWallData
+{
+    Name = "north_wall",
+    Frame = new FrameData
+    {
+        Point = new PointData { X = 0.0, Y = 5.0, Z = 0.0 },
+        Xaxis = new VectorData { X = 1.0, Y = 0.0, Z = 0.0 },
+        Yaxis = new VectorData { X = 0.0, Y = 0.0, Z = 1.0 },
+    },
+    Height = 3.0,
+    Width = 6.0,
+};
+
+// Send to Python -- Python receives the same object
+byte[] bytes = serializer.Pack(wall);
+
+// Receive from Python
+var received = serializer.Unpack<KumikiWallData>(bytes);
+```
+
+In this example, `Kumiki.Data` contains generated `IMessage` types from
+kumiki's `.proto` files. The runtime has no knowledge of kumiki -- it just
+scans the assembly for `IMessage` types and makes them available to
+`Pack`/`Unpack`.
 
 ### Future direction
 

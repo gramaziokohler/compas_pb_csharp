@@ -53,7 +53,10 @@ public static class Registry
     /// Safe to call multiple times -- already-registered types are overwritten idempotently.
     /// </summary>
     /// <example>
-    /// <code>Registry.RegisterAssembly(typeof(MyCustomMessage).Assembly);</code>
+    /// <code>
+    /// // In a Grasshopper plugin startup or Unity Awake()
+    /// Registry.RegisterAssembly(typeof(TaskAssignmentMessageData).Assembly);
+    /// </code>
     /// </example>
     public static void RegisterAssembly(System.Reflection.Assembly assembly)
     {
