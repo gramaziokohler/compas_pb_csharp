@@ -160,19 +160,12 @@ contract.
 An assembly-level marker attribute that domain packages can apply:
 
 ```csharp
-// In the domain package's AssemblyInfo.cs or any top-level file
 [assembly: CompasPb.CompasPbRegistration]
-
-// In the domain package's startup (e.g. Grasshopper GH_AssemblyInfo)
-public override void OnLoadAssembly(GH_LoadingInstruction instruction)
-{
-    Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
-}
 ```
 
 Today the attribute is a convention — you must still call `RegisterAssembly`
-explicitly. It exists so a future version can scan for marked assemblies
-automatically, without consumers needing to change their startup code.
+explicitly at startup. It exists so a future version can scan for marked
+assemblies automatically, without consumers needing to change their code.
 
 ### Example: using third-party domain types
 
