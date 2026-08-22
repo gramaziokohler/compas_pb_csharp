@@ -133,14 +133,16 @@ their CLR types. At startup it scans its own assembly. Third-party assemblies
 register via:
 
 ```csharp
-// In a Grasshopper plugin's OnLoadAssembly, Unity's Awake(), or any startup path
-Registry.RegisterAssembly(typeof(TaskAssignmentMessageData).Assembly);
+// Pick any type from the domain package's assembly as the anchor
+Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
 ```
 
-The call scans the assembly for all `IMessage` types, registers them by both
+This scans the assembly for all `IMessage` types, registers them by both
 simple and full protobuf name, and rebuilds the unpack delegate and JSON type
-caches. Safe to call multiple times (idempotent) and works on all targets:
-.NET Standard 2.0 (Unity), .NET Framework 4.8 (Rhino/Grasshopper), and .NET 9.
+caches. Call it once at startup (e.g. Grasshopper plugin load, Unity `Awake()`,
+or `Program.cs`). Safe to call multiple times (idempotent) and works on all
+targets: .NET Standard 2.0 (Unity), .NET Framework 4.8 (Rhino/Grasshopper),
+and .NET 9.
 
 ### Type URL resolution
 
@@ -164,7 +166,7 @@ An assembly-level marker attribute that domain packages can apply:
 // In the domain package's startup (e.g. Grasshopper GH_AssemblyInfo)
 public override void OnLoadAssembly(GH_LoadingInstruction instruction)
 {
-    Registry.RegisterAssembly(typeof(TaskAssignmentMessageData).Assembly);
+    Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
 }
 ```
 
@@ -182,38 +184,34 @@ the assembly -- no changes to `compas_pb_csharp` needed.
 ```csharp
 using CompasPb;
 using CompasPb.Data;
-using Kumiki.Data;  // from the domain package's generated C# bindings
+using MyDomainPackage.Data;  // from the domain package's generated C# bindings
 
 // At startup -- register the domain package's types with the runtime
-Registry.RegisterAssembly(typeof(KumikiWallData).Assembly);
+Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
 
-// Pack/Unpack now works for kumiki types
+// Pack/Unpack now works for the domain package's types
 var serializer = new CompasPbSerializer();
 
-var wall = new KumikiWallData
+var toolPath = new ToolPathData
 {
-    Name = "north_wall",
+    Name = "milling_path_01",
     Frame = new FrameData
     {
         Point = new PointData { X = 0.0, Y = 5.0, Z = 0.0 },
         Xaxis = new VectorData { X = 1.0, Y = 0.0, Z = 0.0 },
         Yaxis = new VectorData { X = 0.0, Y = 0.0, Z = 1.0 },
     },
-    Height = 3.0,
-    Width = 6.0,
 };
 
 // Send to Python -- Python receives the same object
-byte[] bytes = serializer.Pack(wall);
+byte[] bytes = serializer.Pack(toolPath);
 
 // Receive from Python
-var received = serializer.Unpack<KumikiWallData>(bytes);
+var received = serializer.Unpack<ToolPathData>(bytes);
 ```
 
-In this example, `Kumiki.Data` contains generated `IMessage` types from
-kumiki's `.proto` files. The runtime has no knowledge of kumiki -- it just
-scans the assembly for `IMessage` types and makes them available to
-`Pack`/`Unpack`.
+The runtime has no knowledge of the domain package -- it just scans the
+assembly for `IMessage` types and makes them available to `Pack`/`Unpack`.
 
 ### Future direction
 

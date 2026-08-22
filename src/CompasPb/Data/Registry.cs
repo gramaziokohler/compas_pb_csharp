@@ -54,8 +54,8 @@ public static class Registry
     /// </summary>
     /// <example>
     /// <code>
-    /// // In a Grasshopper plugin startup or Unity Awake()
-    /// Registry.RegisterAssembly(typeof(TaskAssignmentMessageData).Assembly);
+    /// // At startup, register types from your domain package
+    /// Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
     /// </code>
     /// </example>
     public static void RegisterAssembly(System.Reflection.Assembly assembly)
