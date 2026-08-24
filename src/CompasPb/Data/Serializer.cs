@@ -40,6 +40,13 @@ internal static class Serializer
             return new AnyData { Value = Value.ForNull() };
         }
 
+        // Check for a custom serializer registered by a domain package
+        var customSerialized = Registry.TrySerialize(obj);
+        if (customSerialized != null)
+        {
+            return customSerialized;
+        }
+
         return obj switch
         {
             ICompasFallback fallback => new AnyData

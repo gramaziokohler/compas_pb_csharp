@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package test.domain;
+
+option csharp_namespace = "CompasPb.Test.Domain";
+
+// Simulates a domain-package proto type (e.g. from antikythera or compas_timber).
+// Used only in tests to verify third-party registration and converter functions.
+message ToolPathData {
+    string name = 1;
+    repeated ToolFrameData segments = 2;
+    ToolFrameData tool_frame = 3;
+}
+
+message ToolFrameData {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+    double ax = 4;
+    double ay = 5;
+    double az = 6;
+}

@@ -14,6 +14,9 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
+- Add `RegisterSerializer<T>` / `RegisterDeserializer` converter-function registry for domain types that are not `IMessage` (e.g. Unity `Vector3` or Rhino `Point3d`)
+- Add public `Registry.RegisterAssembly(Assembly)` for third-party type registration
+- Add `[CompasPbRegistration]` assembly-level marker attribute for future auto-discovery
 - Add `ICompasPbSerializer` interface and `CompasPbSerializer` implementation with typed `Unpack<T>` and DI support
 - Add byte-array serialization using the compas_pb base64 representation
 - Add `ICompasFallback` support for interoperable fallback objects such as `compas_model` models
@@ -28,18 +31,21 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
+- Fix type URL matching to resolve by full protobuf name after last `/` instead of simple name splitting on `.`
 - Embed `COMPAS_PB_VERSION.json` as assembly resource — fixes version returning `unknown` in Grasshopper/Unity
 
 ### Tests
 
+- Add test-only `ToolPathData` proto to simulate third-party domain package registration
+- Add converter-function registry tests with `RegisterSerializer` / `RegisterDeserializer` round-trips
 - Add compas_pb version compatibility coverage
 - Add a Python-generated `compas_model` fixture to verify Python-to-C# wire interoperability
 
 ### Documentation
 
+- Rewrite ARCHITECTURE.md as ecosystem runtime documentation with converter-function registry and runtime contract checklist
 - Update README with all three usage patterns and HTTP transport example
 - Update README and ARCHITECTURE with JSON serialization usage and design notes
-- Update ARCHITECTURE.md to reflect new design
 
 ### CI/CD
 
@@ -47,5 +53,7 @@ All notable changes to this project will be documented in this file.
 
 ### Development
 
+- Add `Grpc.Tools` for test-only proto compilation
+- Remove dead `RegisterType<T>` method from Registry
 - Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
 - Remove unused `Data/Helper.cs`

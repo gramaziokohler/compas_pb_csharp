@@ -22,6 +22,11 @@
             PrivateAssets="all"
             IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive"
         />
+        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Proto Definitions">
+        <Protobuf Include="Protos/toolpath.proto" GrpcServices="None" />
     </ItemGroup>
 
     <!-- Explicitly copy the xunit test adapter to the output directory so VSTest can discover it.

@@ -83,6 +83,13 @@ internal static class Deserializer
             return UnpackDict(dictionary);
         }
 
+        // Check for a custom deserializer registered by a domain package
+        var customDeserialized = Registry.TryDeserialize(message);
+        if (customDeserialized != null)
+        {
+            return customDeserialized;
+        }
+
         dataType ??= Registry.GetType(message.TypeUrl);
         return dataType is null ? null : Registry.UnpackAs(message, dataType);
     }

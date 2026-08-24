@@ -19,6 +19,12 @@ public static class Registry
         Func<Google.Protobuf.WellKnownTypes.Any, object?>
     > _unpackDelegates = new();
 
+    // Custom serializers: domain type → function that returns Any
+    private static readonly Dictionary<System.Type, Func<object, Any>> _serializers = new();
+
+    // Custom deserializers: protobuf full name → function that returns domain object
+    private static readonly Dictionary<string, Func<Any, object>> _deserializers = new();
+
     // Cached Google TypeRegistry for JsonFormatter/JsonParser, built from scanned types
     private static TypeRegistry? _jsonTypeRegistry;
 
@@ -60,6 +66,11 @@ public static class Registry
     /// </example>
     public static void RegisterAssembly(System.Reflection.Assembly assembly)
     {
+        if (assembly is null)
+        {
+            throw new ArgumentNullException(nameof(assembly));
+        }
+
         RegisterAssemblyTypes(assembly);
         BuildUnpackDelegates();
         BuildJsonTypeRegistry();
@@ -86,6 +97,79 @@ public static class Registry
                 ProtoRegistry[descriptor.FullName] = type;
             }
         }
+    }
+
+    /// <summary>
+    /// Registers a custom serializer for a domain type.
+    /// When <c>Pack</c> encounters an object of type <typeparamref name="TDomain"/>,
+    /// it calls this function instead of requiring <c>IMessage</c>.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// Registry.RegisterSerializer&lt;Plane&gt;(plane =>
+    ///     Any.Pack(new FrameData { Point = ... }));
+    /// </code>
+    /// </example>
+    public static void RegisterSerializer<TDomain>(Func<TDomain, Any> serializer)
+    {
+        _serializers[typeof(TDomain)] = obj => serializer((TDomain)obj);
+    }
+
+    /// <summary>
+    /// Registers a custom deserializer for a protobuf type.
+    /// When <c>Unpack</c> encounters a message with the given protobuf name,
+    /// it calls this function to produce a domain object instead of the raw <c>IMessage</c>.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// Registry.RegisterDeserializer("compas_pb.data.FrameData", any =>
+    /// {
+    ///     var frame = any.Unpack&lt;FrameData&gt;();
+    ///     return new Plane(frame.Point.X, frame.Point.Y, frame.Point.Z);
+    /// });
+    /// </code>
+    /// </example>
+    public static void RegisterDeserializer(string protoFullName, Func<Any, object> deserializer)
+    {
+        _deserializers[protoFullName] = deserializer;
+    }
+
+    internal static AnyData? TrySerialize(object obj)
+    {
+        if (_serializers.TryGetValue(obj.GetType(), out var fn))
+        {
+            return new AnyData { Message = fn(obj) };
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Removes a custom serializer for a domain type.
+    /// </summary>
+    public static void UnregisterSerializer<TDomain>()
+    {
+        _serializers.Remove(typeof(TDomain));
+    }
+
+    /// <summary>
+    /// Removes a custom deserializer for a protobuf type.
+    /// </summary>
+    public static void UnregisterDeserializer(string protoFullName)
+    {
+        _deserializers.Remove(protoFullName);
+    }
+
+    internal static object? TryDeserialize(Any message)
+    {
+        var fullName = message.TypeUrl.StartsWith("type.googleapis.com/")
+            ? message.TypeUrl.Substring("type.googleapis.com/".Length)
+            : message.TypeUrl;
+
+        if (_deserializers.TryGetValue(fullName, out var fn))
+        {
+            return fn(message);
+        }
+        return null;
     }
 
     public static TypeRegistry GetJsonTypeRegistry() =>
