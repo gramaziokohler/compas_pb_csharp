@@ -100,7 +100,12 @@ public class RegistryTest
         var toolPath = new ToolPathData
         {
             Name = "milling_01",
-            ToolFrame = new ToolFrameData { X = 1.0, Y = 2.0, Z = 3.0 },
+            ToolFrame = new ToolFrameData
+            {
+                X = 1.0,
+                Y = 2.0,
+                Z = 3.0,
+            },
         };
         toolPath.Segments.Add(
             new ToolFrameData
@@ -236,10 +241,8 @@ public class RegistryTest
     public void CompasPbRegistrationAttribute_IsAssemblyTargeted()
     {
         var attr = typeof(CompasPbRegistrationAttribute);
-        var usage = (System.AttributeUsageAttribute)System.Attribute.GetCustomAttribute(
-            attr,
-            typeof(System.AttributeUsageAttribute)
-        )!;
+        var usage = (System.AttributeUsageAttribute)
+            System.Attribute.GetCustomAttribute(attr, typeof(System.AttributeUsageAttribute))!;
         Assert.Equal(System.AttributeTargets.Assembly, usage.ValidOn);
     }
 }

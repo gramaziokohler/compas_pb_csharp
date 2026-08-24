@@ -199,11 +199,10 @@ public static class Registry
         }
 
         // Try simple name lookup (e.g. "PointData") for backward compatibility
-        string simpleName = fullName.Contains("/")
-            ? fullName.Substring(fullName.LastIndexOf('/') + 1)
-            : fullName.Contains(".")
-                ? fullName.Substring(fullName.LastIndexOf('.') + 1)
-                : fullName;
+        string simpleName =
+            fullName.Contains("/") ? fullName.Substring(fullName.LastIndexOf('/') + 1)
+            : fullName.Contains(".") ? fullName.Substring(fullName.LastIndexOf('.') + 1)
+            : fullName;
 
         if (ProtoRegistry.TryGetValue(simpleName, out type))
         {
