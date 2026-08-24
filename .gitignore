@@ -1,6 +1,7 @@
 # IDE
 .vs
 .idea/
+.nvim/
 
 # Build directories - ignore all bin and obj folders anywhere
 **/bin/
@@ -73,3 +74,5 @@ wheels/
 .installed.cfg
 *.egg
 
+# os
+.DS_Store
