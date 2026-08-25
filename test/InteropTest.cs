@@ -36,4 +36,16 @@ public class InteropTest
         Assert.Equal(2.0, transformation.Matrix[7]);
         Assert.Equal(3.0, transformation.Matrix[11]);
     }
+
+    [Fact]
+    public void CSharpPayload_MatchesBytesProducedByPythonCompasPb11()
+    {
+        const string pythonPayload =
+            "Cig6JgoCICoKCSkAAAAAAAAIQAoPEg0aC2Jhc2U2NDpBUDg9CgQSAggAEgUxLjEuMA==";
+        var input = new List<object?> { 42, 3.0, new byte[] { 0, 255 }, null };
+
+        var csharpPayload = Serializer.PackAsBytes(Serializer.PackAsAnyData(input));
+
+        Assert.Equal(pythonPayload, Convert.ToBase64String(csharpPayload));
+    }
 }

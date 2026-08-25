@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CompasPb.Data;
+using Google.Protobuf.WellKnownTypes;
 using Xunit;
 
 public class SerializerTest
@@ -182,5 +183,21 @@ public class SerializerTest
         var result = Assert.IsType<byte[]>(_serializer.Unpack(bytes));
 
         Assert.Equal(input, result);
+    }
+
+    [Fact]
+    public void Unpack_LegacyAnyWrappedContainers()
+    {
+        var legacyList = new ListData();
+        legacyList.Items.Add(Serializer.PackAsAnyData(1));
+        var legacyDictionary = new DictData();
+        legacyDictionary.Items.Add("items", new AnyData { Message = Any.Pack(legacyList) });
+
+        var result = Assert.IsType<Dictionary<string, object?>>(
+            Deserializer.UnpackAnyData(new AnyData { Message = Any.Pack(legacyDictionary) })
+        );
+        var items = Assert.IsType<List<object?>>(result["items"]);
+
+        Assert.Equal(1L, items[0]);
     }
 }

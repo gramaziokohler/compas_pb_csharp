@@ -63,7 +63,7 @@ Deserializer.UnpackBytes(byte[]) -> AnyData (parse + version check)
     ├── typed path:   Deserializer.Unpack<T>(AnyData) -> T?      [no reflection]
     │
     └── dynamic path: Deserializer.UnpackAnyData(AnyData) -> object?
-                          └── Registry.UnpackAs(any, targetType) [delegate cache, O(1)]
+                          └── Registry.Unpack(any) [full protobuf name -> parser/converter]
 ```
 
 ---
@@ -78,13 +78,24 @@ Public contract is an interface — enables DI, mocking, and multiple implementa
 
 Static methods remain as a convenience facade over `CompasPbSerializer`. No behavior change for existing callers.
 
-### 3. Delegate Cache in Registry (`Registry.cs`)
+### 3. Function Registry (`Registry.cs`)
 
-At startup, reflection scans all `IMessage` types and builds a `Dictionary<Type, Func<Any, object?>>`. Per-call dispatch is O(1) with no reflection. Replaces `MakeGenericMethod` which was called once per deserialization.
+The registry stores serializer and deserializer functions rather than requiring model
+classes to implement a runtime-specific shape. Downstream packages register a model ↔
+protobuf pair with `Registry.Register`; serializer lookup follows base classes and
+interfaces, while deserializers are keyed by the protobuf descriptor's fully qualified
+name. Loaded assemblies can also be scanned for direct `IMessage` identity conversion.
+
+Fallback conversions are registered separately by COMPAS `dtype`. Registered fallback
+payloads rebuild application objects; unknown dtypes remain dictionaries so they can still
+be inspected or forwarded.
 
 ### 4. Polymorphic Dispatch via Pattern Matching (`Deserializer.cs`)
 
-`UnpackAnyData()` uses `DataOneofCase` enum switch for the top-level dispatch. The typed `Unpack<T>` path uses a generic constraint — the compiler resolves `T`, no runtime reflection.
+`UnpackAnyData()` uses the `DataOneofCase` enum for the top-level dispatch. `Any` type URLs
+are matched on the entire protobuf name after their last slash, preventing collisions
+between same-named messages in different packages. The typed `Unpack<T>` path uses a
+generic constraint — the compiler resolves `T`, with no runtime reflection.
 
 ### 5. Envelope / Wrapper Pattern (`MessageData`, `AnyData`)
 

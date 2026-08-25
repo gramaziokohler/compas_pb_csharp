@@ -32,7 +32,7 @@ public static class Deserializer
             AnyData.DataOneofCase.DoubleValue => data.DoubleValue,
             AnyData.DataOneofCase.DictValue => UnpackDict(data.DictValue),
             AnyData.DataOneofCase.ListValue => UnpackList(data.ListValue),
-            AnyData.DataOneofCase.Fallback => UnpackDict(data.Fallback.Data),
+            AnyData.DataOneofCase.Fallback => UnpackFallback(data.Fallback),
             AnyData.DataOneofCase.Message => UnpackMessage(data.Message, dataType),
             AnyData.DataOneofCase.None => null,
             _ => throw new ArgumentOutOfRangeException(
@@ -62,17 +62,23 @@ public static class Deserializer
 
     private static object? UnpackMessage(Any message, System.Type? dataType)
     {
-        if (message.TryUnpack<ListData>(out var list))
+        string? protobufName = Registry.GetProtobufName(message.TypeUrl);
+        if (protobufName == ListData.Descriptor.FullName)
         {
-            return UnpackList(list);
+            return UnpackList(ListData.Parser.ParseFrom(message.Value));
         }
-        if (message.TryUnpack<DictData>(out var dictionary))
+        if (protobufName == DictData.Descriptor.FullName)
         {
-            return UnpackDict(dictionary);
+            return UnpackDict(DictData.Parser.ParseFrom(message.Value));
         }
 
-        dataType ??= Registry.GetType(message.TypeUrl);
-        return dataType is null ? null : Registry.UnpackAs(message, dataType);
+        return dataType is null ? Registry.Unpack(message) : Registry.UnpackAs(message, dataType);
+    }
+
+    private static object? UnpackFallback(FallbackData data)
+    {
+        var dictionary = UnpackDict(data.Data);
+        return Registry.TryUnpackFallback(dictionary, out var value) ? value : dictionary;
     }
 
     private static List<object?> UnpackList(ListData data)

@@ -25,6 +25,19 @@ public static class Serializer
             return new AnyData { Value = Value.ForNull() };
         }
 
+        if (Registry.TryPack(obj, out var registeredMessage))
+        {
+            return new AnyData { Message = Any.Pack(registeredMessage) };
+        }
+
+        if (Registry.TryPackFallback(obj, out var registeredFallback))
+        {
+            return new AnyData
+            {
+                Fallback = new FallbackData { Data = PackDict(registeredFallback) },
+            };
+        }
+
         return obj switch
         {
             ICompasFallback fallback => new AnyData
