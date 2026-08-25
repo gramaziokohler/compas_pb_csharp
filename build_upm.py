@@ -3,7 +3,7 @@ Build the Unity Package Manager (UPM) distribution of CompasPb.
 
 Publishes the netstandard2.0 assembly, stages it together with its bundled
 third-party dependency into upm/dev.compas.compas-pb/Runtime, syncs the
-package version from the repository, and writes the Unity
+package version against release-please's, and writes the Unity
 .meta files that an immutable registry package must ship with.
 
 Usage:
@@ -154,13 +154,19 @@ def stage_runtime() -> list[str]:
     return sorted(expected)
 
 
-def sync_package_json(version: str):
-    manifest_path = PACKAGE_DIR / "package.json"
-    manifest = json.loads(manifest_path.read_text())
+def check_package_version(version: str):
+    """Both version files are owned by release-please, so disagreement is a bug.
+
+    release-please bumps version.json and the package manifest from the same
+    release, so this only fires when its extra-files config has drifted.
+    """
+    manifest = json.loads((PACKAGE_DIR / "package.json").read_text())
     if manifest["version"] != version:
-        manifest["version"] = version
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-        print(f"set package.json version to {version}")
+        raise SystemExit(
+            f"ERROR: package.json is {manifest['version']} but version.json is {version}.\n"
+            "Both are updated by release-please; check the extra-files entries in "
+            "release-please-config.json."
+        )
 
 
 def stable_guid(relative_path: str) -> str:
@@ -329,7 +335,7 @@ def main() -> int:
 
     version = read_version()
     staged = stage_runtime()
-    sync_package_json(version)
+    check_package_version(version)
     write_metas()
 
     print(f"\n{PACKAGE_NAME} {version} staged in {PACKAGE_DIR.relative_to(REPO_ROOT)}")

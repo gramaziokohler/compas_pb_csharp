@@ -16,34 +16,44 @@ The version is read from `version.json`:
 { "version": "1.0.0" }
 ```
 
-The release-preparation workflow calculates the next version from the latest
-semantic-version tag and the selected `patch`, `minor`, or `major` increment. It
-uses `nbgv set-version` to update `version.json`; `nbgv` then stamps assemblies and
-packages consistently from that version and the Git history.
+[release-please](https://github.com/googleapis/release-please) owns the version. It
+reads [Conventional Commits](https://www.conventionalcommits.org/) on `main`, works out
+the next version, and keeps a release pull request up to date that writes it into
+`version.json` and the Unity `package.json`. `nbgv` then stamps assemblies and packages
+from `version.json` and the Git history, exactly as before — it no longer decides
+*which* version, only how builds are stamped with it.
 
 ---
 
 ## How to release
 
-1. Add every user-visible change to `CHANGELOG.md` under `## [Unreleased]`.
-2. Open **Actions → release → Run workflow** on the `main` branch.
-3. Select the required `patch`, `minor`, or `major` increment.
-4. The workflow creates and pushes `release/vX.Y.Z`, updates `version.json`, and
-   moves the unreleased changelog entries under `## [X.Y.Z] - YYYY-MM-DD`.
-5. Open a pull request from `release/vX.Y.Z` to `main` and review the version and
-   changelog changes.
-6. Merge the release pull request. The push to `main` validates, packages,
-   publishes, tags, and creates the GitHub release automatically.
+1. Write commits on `main` using Conventional Commits. `feat:` gives a minor bump,
+   `fix:` a patch, and a `!` suffix or a `BREAKING CHANGE:` footer gives a major.
+   Anything else (`chore:`, `docs:`, `test:`, `ci:`) never triggers a release.
+2. release-please keeps a **`chore(main): release X.Y.Z`** pull request open, updating it
+   as more commits land. Review it: it carries the version bump in `version.json` and
+   `upm/dev.compas.compas-pb/package.json`, plus the generated `CHANGELOG.md` entry. Edit
+   the changelog in that PR if you want to reword it.
+3. Merge it. That single push to `main` tags `vX.Y.Z`, creates the GitHub release, and
+   runs everything that publishes.
 
-For the first stable release from `0.1.0`, select **major** to prepare `1.0.0`.
-
-To prepare a release locally instead of using Actions:
+To force a specific version regardless of what the commits imply, put a
+`Release-As: X.Y.Z` footer in a commit body:
 
 ```bash
-dotnet tool install --global nbgv --version 3.9.50
-bash ./bump.sh major
-git push --set-upstream origin release/v1.0.0
+git commit --allow-empty -m "chore: release 1.0.0" -m "Release-As: 1.0.0"
 ```
+
+### Bootstrapping the first release-please release
+
+`.release-please-manifest.json` records `0.1.0` as the last released version, and
+`bootstrap-sha` points at that tag so the first release pull request does not sweep up
+the entire history. `version.json` already reads `1.0.0` because that is the version in
+development.
+
+The commits leading to `1.0.0` predate Conventional Commits, so release-please cannot
+infer that bump. Cut the first release with an explicit `Release-As: 1.0.0` commit as
+shown above; everything after it is inferred normally.
 
 ---
 
@@ -72,11 +82,14 @@ invalidates references in consumer projects.
 | `--no-build` | Stage the existing `Release/netstandard2.0` output instead of compiling |
 | `--validate` | Fail if the staged layout is not publishable |
 
-`bump.sh` runs `build_upm.py --validate` and commits `upm/` alongside `version.json`
-and `CHANGELOG.md`, so a release branch always carries assemblies built from its own
-version. The `check-release` job refuses to release when `package.json` and the
-changelog version disagree, and the `upm` job in `build.yml` rebuilds and validates
-the package on every push and pull request.
+`Runtime/` is **not** committed. It is generated into an ignored folder, and the
+`upm-publish` job copies the assembled package onto a dedicated `upm` branch and tags it
+`upm/vX.Y.Z`. OpenUPM reads those tags, so the compiled assemblies never enter `main`'s
+history. The `upm` job in `build.yml` rebuilds and validates the package on every push
+and pull request.
+
+`build_upm.py` checks that `package.json` and `version.json` agree rather than syncing
+them, because release-please owns both.
 
 The changelog and license are not bundled. `changelogUrl` and `licensesUrl` in
 `package.json` point at the repository copies instead, so there is nothing to keep
@@ -100,35 +113,39 @@ build rather than being silently dropped from the package.
 
 ### Submitting to OpenUPM
 
-OpenUPM builds from this repository's release tags. Submit the package once at
-[openupm.com/packages/add](https://openupm.com/packages/add/) with:
+OpenUPM packs the tree at a tag, so it reads the `upm/vX.Y.Z` tags rather than the
+`vX.Y.Z` release tags — those point at `main`, which carries no compiled assemblies.
+Submit the package once at [openupm.com/packages/add](https://openupm.com/packages/add/)
+with:
 
 | Field | Value |
 |---|---|
 | Repository | `gramaziokohler/compas_pb_csharp` |
 | Package name | `dev.compas.compas-pb` |
-| Package folder | `upm/dev.compas.compas-pb` |
-| Version tag prefix | none (tags are `vX.Y.Z`) |
+| Package folder | repository root (the `upm` branch holds the package at its root) |
+| Version tag prefix | `upm/` |
 
-After that, every `vX.Y.Z` tag pushed by `release.yml` is picked up automatically.
-The scope `dev.compas` must be registered to this repository's maintainers.
+The prefix is a literal filter, so the `vX.Y.Z` release tags are ignored and only the
+Unity tags trigger an OpenUPM build. After that, every `upm/vX.Y.Z` tag pushed by
+`release.yml` is picked up automatically. The scope `dev.compas` must be registered to
+this repository's maintainers.
 
 ---
 
 ## What CI does on merge
 
-On every push to `main`, `release.yml` compares the first versioned changelog
-section with `version.json` and the existing release tags. If the versions match
-and neither `vX.Y.Z` nor the legacy `X.Y.Z` tag exists, it automatically:
+Every push to `main` runs `release.yml`, which starts with release-please. On an
+ordinary push it only refreshes the release pull request and stops there — every other
+job is gated on its `release_created` output.
 
-1. Runs the format check, build, and tests on Windows and macOS.
-2. Builds the platform release artifacts.
-3. Packs and publishes `CompasPb.X.Y.Z.nupkg` and its symbol package to NuGet.org.
-4. Creates and pushes tag `vX.Y.Z`.
-5. Creates the GitHub release and attaches the platform artifacts.
+On the push that merges a release pull request, release-please tags `vX.Y.Z` and creates
+the GitHub release, and the remaining jobs run:
 
-Ordinary pushes do not publish when the changelog version differs from
-`version.json` or the version already has a release tag.
+1. Format check, build, and tests on Windows and macOS.
+2. Platform release artifacts for `win-x64` and `osx-x64`.
+3. `CompasPb.X.Y.Z.nupkg` and its symbol package pushed to NuGet.org.
+4. The Unity package built and pushed to the `upm` branch, tagged `upm/vX.Y.Z`.
+5. The platform artifacts attached to the GitHub release.
 
 ### NuGet Trusted Publishing
 
@@ -178,9 +195,10 @@ before the release runs.
 
 | Bump type | How |
 |---|---|
-| **patch** `1.0.0 → 1.0.1` | Run `release` on `main` with `patch` |
-| **minor** `1.0.x → 1.1.0` | Run `release` on `main` with `minor` |
-| **major** `0.x.x → 1.0.0` | Run `release` on `main` with `major` |
+| **patch** `1.0.0 → 1.0.1` | Land a `fix:` commit |
+| **minor** `1.0.x → 1.1.0` | Land a `feat:` commit |
+| **major** `0.x.x → 1.0.0` | Land a `feat!:` commit or a `BREAKING CHANGE:` footer |
+| **exact** | Add a `Release-As: X.Y.Z` footer |
 
 | Action | Command |
 |---|---|
@@ -211,5 +229,4 @@ On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`)
 |---|---|---|
 | `build.yml` | Push / PR to `main` | Format check, build, test |
 | `build.yml` | Push / PR to `main` | Build and validate the Unity package |
-| `release.yml` | Manual dispatch | Prepare and push a versioned release branch |
-| `release.yml` | Push to `main` | Detect an untagged release, publish it, tag it, and create the GitHub Release |
+| `release.yml` | Push to `main` | Maintain the release pull request; on merge, tag, publish to NuGet and the `upm` branch, and attach release assets |

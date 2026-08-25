@@ -75,3 +75,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Unity package binaries are built by build_upm.py and published to the upm branch.
+upm/*/Runtime/
