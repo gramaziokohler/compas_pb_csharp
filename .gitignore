@@ -2,6 +2,9 @@
 .vs
 .idea/
 
+# macOS
+.DS_Store
+
 # Build directories - ignore all bin and obj folders anywhere
 **/bin/
 **/obj/
@@ -72,4 +75,3 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
