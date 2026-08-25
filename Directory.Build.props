@@ -16,7 +16,7 @@
     <PropertyGroup Label="Package Information">
         <Authors>Wei-Ting Chen</Authors>
         <Company>Gramaziokohler</Company>
-        <Copyright>Copyright © $(Authors) $([System.DateTime]::Now.Year)</Copyright>
+        <Copyright>Copyright © $([System.DateTime]::Now.Year) Gramazio Kohler Research, ETH Zurich</Copyright>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/gramaziokohler/compas_pb_csharp</PackageProjectUrl>
         <RepositoryUrl>https://github.com/gramaziokohler/compas_pb_csharp</RepositoryUrl>

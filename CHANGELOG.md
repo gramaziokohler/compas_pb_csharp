@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - Match `Any` type URLs by their full protobuf name after the last slash instead of by collision-prone C# class name
 - Remove duplicate README inclusion from the NuGet package build
 - Fix the build and documentation links embedded in the NuGet README
+- Add the missing root `LICENSE` file that the README license badge links to
 
 ## [0.1.0] - 2026-08-09
 
