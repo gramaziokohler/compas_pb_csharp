@@ -30,6 +30,11 @@ from `version.json` and the Git history, exactly as before — it no longer deci
 1. Write commits on `main` using Conventional Commits. `feat:` gives a minor bump,
    `fix:` a patch, and a `!` suffix or a `BREAKING CHANGE:` footer gives a major.
    Anything else (`chore:`, `docs:`, `test:`, `ci:`) never triggers a release.
+
+   The `pr-title` workflow enforces this on pull request titles, because a squash merge
+   turns the title into the commit message on `main`. If you merge without squashing,
+   the individual commit messages are what release-please reads, and those are not
+   checked — write them in the same form.
 2. release-please keeps a **`chore(main): release X.Y.Z`** pull request open, updating it
    as more commits land. Review it: it carries the version bump in `version.json` and
    `upm/dev.compas.compas-pb/package.json`, plus the generated `CHANGELOG.md` entry. Edit
@@ -229,4 +234,5 @@ On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`)
 |---|---|---|
 | `build.yml` | Push / PR to `main` | Format check, build, test |
 | `build.yml` | Push / PR to `main` | Build and validate the Unity package |
+| `pr-title.yml` | Pull request opened / edited | Enforce a Conventional Commit pull request title |
 | `release.yml` | Push to `main` | Maintain the release pull request; on merge, tag, publish to NuGet and the `upm` branch, and attach release assets |

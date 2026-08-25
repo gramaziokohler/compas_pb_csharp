@@ -1,0 +1,42 @@
+name: pr-title
+
+# Squash merges turn the pull request title into the commit message on main, and
+# release-please derives the next version from those messages. A title that is not a
+# Conventional Commit silently produces no release, so it is checked here instead.
+#
+# pull_request_target runs with the base repository's permissions so the check also
+# works on pull requests from forks. This workflow never checks out pull request code,
+# which is what makes that trigger safe to use.
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional-title:
+    name: Validate pull request title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Only feat and fix produce a release; the rest are accepted so ordinary
+          # work is not blocked, and release-please leaves them out of the changelog.
+          types: |
+            feat
+            fix
+            build
+            chore
+            ci
+            docs
+            perf
+            refactor
+            revert
+            style
+            test
