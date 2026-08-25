@@ -207,6 +207,35 @@ class also handles derived instances. Generated protobuf messages can be registe
 identity deserialization with `Registry.RegisterAssembly(typeof(WidgetData).Assembly)`;
 `Registry.DiscoverLoadedAssemblies()` scans all assemblies already loaded by the process.
 
+#### Register automatically from your own package
+
+Calling `Registry.Register` from application startup means every host has to know about every
+package. To make a package's conversions apply just by being referenced, put the registrations
+in a static method and point at it from an assembly-level attribute:
+
+```csharp
+[assembly: CompasPbRegistrations(typeof(WidgetConversions))]
+
+public static class WidgetConversions
+{
+    public static void Register()
+    {
+        Registry.Register<Widget, WidgetData>(
+            widget => new WidgetData { Name = widget.Name },
+            message => new Widget(message.Name)
+        );
+    }
+}
+```
+
+CompasPb invokes each declared registrar at most once, and reads the attribute without
+enumerating your types, so discovery stays cheap. Assemblies loaded later are picked up by
+calling `Registry.DiscoverRegistrations()` again.
+
+The registrations themselves stay explicit `Register<,>` calls, so the generic instantiations
+remain statically visible and survive IL2CPP or trimming; only the call into `Register` is
+discovered. Under a stripping linker, preserve the registrar type so its method is kept.
+
 For a COMPAS type that has no protobuf schema, register its COMPAS JSON-dump fallback in
 both directions:
 

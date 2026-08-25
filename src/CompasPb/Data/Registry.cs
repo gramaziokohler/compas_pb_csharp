@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Google.Protobuf;
@@ -72,9 +73,16 @@ public static class Registry
         StringComparer.Ordinal
     );
 
+    private static readonly ConcurrentDictionary<System.Type, byte> InvokedRegistrars = new();
+
     static Registry()
     {
         RegisterAssembly(typeof(Registry).Assembly);
+
+        // Reading assembly-level attributes does not enumerate types, so this stays cheap enough
+        // to run before the first pack. It is what lets a referenced package's conversions apply
+        // without the host application calling into that package.
+        DiscoverRegistrations();
     }
 
     /// <summary>
@@ -193,14 +201,111 @@ public static class Registry
     }
 
     /// <summary>
-    /// Scans currently loaded assemblies for protobuf messages. Domain conversion functions
-    /// still need to be registered explicitly.
+    /// Scans currently loaded assemblies for protobuf messages and for
+    /// <see cref="CompasPbRegistrationsAttribute"/> declarations.
     /// </summary>
     public static void DiscoverLoadedAssemblies()
     {
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
             RegisterAssembly(assembly);
+        }
+
+        DiscoverRegistrations();
+    }
+
+    /// <summary>
+    /// Invokes the registrars declared by <see cref="CompasPbRegistrationsAttribute"/> on every
+    /// loaded assembly. Each registrar runs at most once, so this is safe to call again after
+    /// more assemblies have loaded.
+    /// </summary>
+    public static void DiscoverRegistrations()
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            DiscoverRegistrations(assembly);
+        }
+    }
+
+    /// <summary>
+    /// Invokes the registrars declared by <see cref="CompasPbRegistrationsAttribute"/> on one
+    /// assembly. Each registrar runs at most once.
+    /// </summary>
+    public static void DiscoverRegistrations(Assembly assembly)
+    {
+        if (assembly is null)
+        {
+            throw new ArgumentNullException(nameof(assembly));
+        }
+
+        foreach (var attribute in GetRegistrationAttributes(assembly))
+        {
+            InvokeRegistrar(assembly, attribute);
+        }
+    }
+
+    private static IEnumerable<CompasPbRegistrationsAttribute> GetRegistrationAttributes(
+        Assembly assembly
+    )
+    {
+        try
+        {
+            return assembly.GetCustomAttributes<CompasPbRegistrationsAttribute>();
+        }
+        catch (FileNotFoundException)
+        {
+            // An assembly whose dependencies cannot be resolved cannot carry registrations we
+            // could act on either, so skip it rather than breaking unrelated serialization.
+            return Array.Empty<CompasPbRegistrationsAttribute>();
+        }
+        catch (TypeLoadException)
+        {
+            return Array.Empty<CompasPbRegistrationsAttribute>();
+        }
+    }
+
+    private static void InvokeRegistrar(Assembly assembly, CompasPbRegistrationsAttribute attribute)
+    {
+        // Claim the registrar before invoking it: a registrar that triggers discovery again must
+        // not re-enter itself.
+        if (!InvokedRegistrars.TryAdd(attribute.RegistrarType, 0))
+        {
+            return;
+        }
+
+        string methodName = string.IsNullOrWhiteSpace(attribute.MethodName)
+            ? CompasPbRegistrationsAttribute.DefaultMethodName
+            : attribute.MethodName;
+
+        var method = attribute.RegistrarType.GetMethod(
+            methodName,
+            BindingFlags.Public | BindingFlags.Static,
+            null,
+            System.Type.EmptyTypes,
+            null
+        );
+
+        if (method is null)
+        {
+            throw new InvalidOperationException(
+                $"Assembly '{assembly.GetName().Name}' declares "
+                    + $"[assembly: CompasPbRegistrations(typeof({attribute.RegistrarType.Name}))], "
+                    + $"but '{attribute.RegistrarType.FullName}' has no public static "
+                    + $"parameterless method named '{methodName}'."
+            );
+        }
+
+        try
+        {
+            method.Invoke(null, null);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw new InvalidOperationException(
+                $"The CompasPb registrar '{attribute.RegistrarType.FullName}.{methodName}' "
+                    + "threw while registering conversions.",
+                exception.InnerException
+            );
         }
     }
 

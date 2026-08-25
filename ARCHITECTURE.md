@@ -86,6 +86,13 @@ protobuf pair with `Registry.Register`; serializer lookup follows base classes a
 interfaces, while deserializers are keyed by the protobuf descriptor's fully qualified
 name. Loaded assemblies can also be scanned for direct `IMessage` identity conversion.
 
+Packages declare their own registrations with an assembly-level
+`[assembly: CompasPbRegistrations(typeof(...))]` attribute. `Registry`'s static constructor
+reads that attribute off every loaded assembly and invokes each registrar once, so a package's
+types work by being referenced rather than by the host calling into it at startup. Reading an
+assembly attribute does not enumerate types, which keeps the startup pass cheap; the expensive
+`IMessage` scan stays lazy in `DiscoverLoadedAssemblies`.
+
 Fallback conversions are registered separately by COMPAS `dtype`. Registered fallback
 payloads rebuild application objects; unknown dtypes remain dictionaries so they can still
 be inspected or forwarded.

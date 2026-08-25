@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Add function-based downstream type registration with inheritance-aware serializer lookup
 - Add registered fallback reconstruction by COMPAS `dtype`
 - Add loaded-assembly discovery for external protobuf messages
+- Add `CompasPbRegistrations` assembly attribute so a package's conversions register by being referenced instead of from application startup
 
 ### Tests
 
