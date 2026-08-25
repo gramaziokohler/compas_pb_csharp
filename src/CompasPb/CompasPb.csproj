@@ -12,6 +12,8 @@
         <PackageId>CompasPb</PackageId>
         <Title>COMPAS Protobuf for C#</Title>
         <Description>A COMPAS extension which lets you serialize and deserialize COMPAS Data types using Protocol Buffers.</Description>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageReleaseNotes>https://github.com/gramaziokohler/compas_pb_csharp/blob/main/CHANGELOG.md</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup Label="Production Dependencies">
@@ -28,10 +30,6 @@
         <EmbeddedResource Include="..\..\resources\COMPAS_PB_VERSION.json">
             <LogicalName>COMPAS_PB_VERSION.json</LogicalName>
         </EmbeddedResource>
-    </ItemGroup>
-
-    <ItemGroup Label="Package Files">
-        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <ItemGroup Label="Build Tools">

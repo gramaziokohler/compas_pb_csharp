@@ -4,11 +4,11 @@
 </p>
 
 <p align="center">
-    <a href="#"><img src="https://img.shields.io/badge/C%23-12.0-239120.svg?logo=csharp" alt="C# 12.0"></a>
-    <a href="#"><img src="https://img.shields.io/badge/target%20framework-net9.0-blue" alt="Target Framework"></a>
+    <a href="#"><img src="https://img.shields.io/badge/C%23-latest-239120.svg?logo=csharp" alt="C# latest"></a>
+    <a href="#"><img src="https://img.shields.io/badge/.NET-netstandard2.0%20%7C%20net48%20%7C%20net9.0-blue?logo=dotnet" alt="Target Frameworks"></a>
     <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
-    <a href="https://github.com/gramaziokohler/compas_pb/actions"><img src="https://github.com/gramaziokohler/compas_pb/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
-    <a href="https://gramaziokohler.github.io/compas_pb_csharp"><img src="https://img.shields.io/badge/docs-latest-brightgreen.svg" alt="Documentation"></a>
+    <a href="https://github.com/gramaziokohler/compas_pb_csharp/actions"><img src="https://github.com/gramaziokohler/compas_pb_csharp/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
+    <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/ARCHITECTURE.md"><img src="https://img.shields.io/badge/docs-runtime-brightgreen.svg" alt="Runtime Documentation"></a>
 </p>
 
 A COMPAS_PB extension which lets you serialize and deserialize COMPAS `Data` types using protobuf in C#.
@@ -185,6 +185,51 @@ byte[] bytes  = serializer.Pack(data);
 object? result = serializer.Unpack(bytes);
 ```
 
+### Register domain-model types
+
+Packages outside this runtime can register conversion functions without changing their
+model classes. Register each mapping once during application startup; the protobuf type is
+identified by its descriptor's full name, so identically named messages in different
+packages cannot collide.
+
+```csharp
+Registry.Register<Widget, WidgetData>(
+    widget => new WidgetData { Name = widget.Name },
+    message => new Widget(message.Name)
+);
+
+byte[] bytes = serializer.Pack(new Widget("A"));
+Widget widget = (Widget)serializer.Unpack(bytes)!;
+```
+
+Serializer lookup follows the C# inheritance chain, so a mapping registered for a base
+class also handles derived instances. Generated protobuf messages can be registered for
+identity deserialization with `Registry.RegisterAssembly(typeof(WidgetData).Assembly)`;
+`Registry.DiscoverLoadedAssemblies()` scans all assemblies already loaded by the process.
+
+For a COMPAS type that has no protobuf schema, register its COMPAS JSON-dump fallback in
+both directions:
+
+```csharp
+Registry.RegisterFallback<Widget>(
+    "my_package/Widget",
+    widget => new Dictionary<string, object>
+    {
+        ["data"] = new Dictionary<string, object> { ["name"] = widget.Name },
+    },
+    values =>
+    {
+        var data = (Dictionary<string, object?>)values["data"]!;
+        return new Widget((string)data["name"]!);
+    }
+);
+```
+
+The runtime writes the registered `dtype` into the fallback envelope. If a fallback dtype
+has no C# registration, deserialization deliberately returns its JSON-dump dictionary so
+the payload remains inspectable. The older `ICompasFallback` interface remains supported
+for existing model classes.
+
 ### HTTP transport
 
 Use `CompasPbHttpClient` to send and receive data from a running `compas_pb` Python server:
@@ -209,7 +254,9 @@ object? result = await client.ReceiveAsync();
 ## Documentation
 
 For further "getting started" instructions, a tutorial, examples, and an API reference,
-please check out the online documentation here: [compas_pb_csharp docs](https://gramaziokohler.github.io/compas_pb_csharp)
+see the [runtime architecture](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/ARCHITECTURE.md)
+and the upstream
+[compas_pb documentation](https://compas.dev/compas_pb/latest/).
 
 ## Issue Tracker
 

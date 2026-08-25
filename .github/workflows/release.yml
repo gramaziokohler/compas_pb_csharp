@@ -242,6 +242,14 @@ jobs:
             -o ${{ github.workspace }}/nupkg
 
           test -f "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg"
+          test -f "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.snupkg"
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: compas-pb-nuget
+          path: ${{ github.workspace }}/nupkg/CompasPb.*nupkg
+          if-no-files-found: error
 
       - name: Check NuGet account configuration
         shell: bash

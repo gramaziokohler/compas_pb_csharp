@@ -14,6 +14,9 @@ All notable changes to this project will be documented in this file.
 - Add byte-array serialization using the compas_pb base64 representation
 - Add `ICompasFallback` support for interoperable fallback objects such as `compas_model` models
 - Preserve deserialization compatibility with legacy dictionaries and lists packed inside protobuf `Any` values
+- Add function-based downstream type registration with inheritance-aware serializer lookup
+- Add registered fallback reconstruction by COMPAS `dtype`
+- Add loaded-assembly discovery for external protobuf messages
 
 ### Tests
 
@@ -23,6 +26,14 @@ All notable changes to this project will be documented in this file.
 ### Development
 
 - Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
+- Fetch the exact pinned C# binding asset from the official `compas-dev/compas_pb` release and verify its checksum
+- Preserve the packed NuGet and symbol packages as release workflow artifacts
+
+### Bug Fixes
+
+- Match `Any` type URLs by their full protobuf name after the last slash instead of by collision-prone C# class name
+- Remove duplicate README inclusion from the NuGet package build
+- Fix the build and documentation links embedded in the NuGet README
 
 ## [0.1.0] - 2026-08-09
 

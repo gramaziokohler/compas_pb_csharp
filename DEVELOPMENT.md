@@ -94,6 +94,11 @@ The `nuget-publish` job has only `contents: read` and `id-token: write` permissi
 NuGet.org validates the repository, workflow, environment, and policy owner before
 issuing a temporary credential. No `NUGET_API_KEY` repository secret is required.
 
+For the first publication, the `CompasPb` package ID must still be unowned on NuGet.org,
+and the NuGet user identified by `NUGET_USER` must be the intended package owner. The
+first successful push claims that ID. A subsequent owner or organization can be added in
+the package's NuGet.org management page.
+
 For some repositories, a new trusted-publishing policy is temporarily active for
 seven days until its first successful publication establishes the immutable GitHub
 repository and owner IDs. Restart that activation window in NuGet.org if it expires
