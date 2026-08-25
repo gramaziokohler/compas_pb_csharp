@@ -60,7 +60,7 @@ tracked in git.
 python3 build_upm.py
 ```
 
-It compiles `CompasPb.csproj` for `netstandard2.0` with `PublicRelease=true`, stages
+It publishes `CompasPb.csproj` for `netstandard2.0` with `PublicRelease=true`, stages
 `CompasPb.dll`, `CompasPb.xml`, and `Google.Protobuf.dll` into `Runtime/`, syncs the
 package version from `version.json`, and writes
 a `.meta` file for every packaged asset. GUIDs are derived from each asset's package
@@ -90,8 +90,13 @@ Only `Google.Protobuf` is redistributed. `Newtonsoft.Json` is declared as the
 `System.Buffers`, `System.Numerics.Vectors`, and
 `System.Runtime.CompilerServices.Unsafe` are part of the Unity 2021.3+ class
 libraries. Bundling any of them would produce duplicate-assembly errors. Adjust
-`BUNDLED_PACKAGES` in `build_upm.py` if a new NuGet dependency has to travel with
-the package, and record it in `Third Party Notices.md`.
+`BUNDLED_ASSEMBLIES` in `build_upm.py` if a new NuGet dependency has to travel with the
+package, and record it in `Third Party Notices.md`.
+
+The dependency set comes from `dotnet publish`, so the SDK decides it rather than this
+script reading NuGet's restore output. Every assembly in the publish output must be listed
+in either `BUNDLED_ASSEMBLIES` or `UNITY_PROVIDED_ASSEMBLIES`; an unrecognised one fails the
+build rather than being silently dropped from the package.
 
 ### Submitting to OpenUPM
 

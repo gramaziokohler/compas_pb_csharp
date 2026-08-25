@@ -1,7 +1,7 @@
 """
 Build the Unity Package Manager (UPM) distribution of CompasPb.
 
-Compiles the netstandard2.0 assembly, stages it together with its bundled
+Publishes the netstandard2.0 assembly, stages it together with its bundled
 third-party dependency into upm/dev.compas.compas-pb/Runtime, syncs the
 package version from the repository, and writes the Unity
 .meta files that an immutable registry package must ship with.
@@ -23,16 +23,27 @@ PACKAGE_NAME = "dev.compas.compas-pb"
 PACKAGE_DIR = REPO_ROOT / "upm" / PACKAGE_NAME
 RUNTIME_DIR = PACKAGE_DIR / "Runtime"
 PROJECT_FILE = REPO_ROOT / "src" / "CompasPb" / "CompasPb.csproj"
-ASSETS_FILE = REPO_ROOT / "src" / "CompasPb" / "obj" / "project.assets.json"
 TARGET_FRAMEWORK = "netstandard2.0"
-BUILD_OUTPUT = REPO_ROOT / "src" / "CompasPb" / "bin" / "Release" / TARGET_FRAMEWORK
+PUBLISH_DIR = REPO_ROOT / "src" / "CompasPb" / "bin" / "Release" / "upm-publish"
 
-# Assemblies copied out of the NuGet graph into the Unity package. Everything
-# else CompasPb depends on is provided by Unity itself: Newtonsoft.Json comes
-# from com.unity.nuget.newtonsoft-json, and System.Memory / System.Buffers /
-# System.Numerics.Vectors / System.Runtime.CompilerServices.Unsafe are part of
-# the Unity 2021.3+ class libraries. Shipping those would duplicate assemblies.
-BUNDLED_PACKAGES = ["Google.Protobuf"]
+# What this project itself contributes.
+OWN_FILES = ["CompasPb.dll", "CompasPb.xml"]
+
+# Dependencies redistributed inside the Unity package, because Unity has no
+# package for them.
+BUNDLED_ASSEMBLIES = ["Google.Protobuf.dll"]
+
+# Dependencies Unity already supplies. Newtonsoft.Json comes from the
+# com.unity.nuget.newtonsoft-json dependency declared in package.json; the rest
+# are part of the Unity 2021.3+ class libraries. Shipping any of them would
+# load a second copy of an assembly Unity has already loaded.
+UNITY_PROVIDED_ASSEMBLIES = [
+    "Newtonsoft.Json.dll",
+    "System.Buffers.dll",
+    "System.Memory.dll",
+    "System.Numerics.Vectors.dll",
+    "System.Runtime.CompilerServices.Unsafe.dll",
+]
 
 # Unity importer used per file extension when generating .meta files.
 IMPORTERS = {
@@ -62,12 +73,22 @@ def ensure_generated_sources():
     run([sys.executable, "fetch_compas_pb.py"])
 
 
-def build_assembly():
+def publish_assembly():
+    """Publish the assembly so the SDK resolves the dependency set for us.
+
+    Publishing rather than building means the dependency list comes from the
+    SDK itself, instead of this script reading NuGet's internal restore output
+    and having to know how a given SDK version spells a target framework.
+    """
     ensure_generated_sources()
+
+    if PUBLISH_DIR.exists():
+        shutil.rmtree(PUBLISH_DIR)
+
     run(
         [
             "dotnet",
-            "build",
+            "publish",
             str(PROJECT_FILE),
             "--configuration",
             "Release",
@@ -76,60 +97,46 @@ def build_assembly():
             # Matches the NuGet pack step so the staged assembly carries the
             # release version rather than a branch-local prerelease suffix.
             "-p:PublicRelease=true",
+            "--output",
+            str(PUBLISH_DIR),
         ]
     )
 
 
-def resolve_bundled_assemblies() -> list[Path]:
-    """Resolve the NuGet dependency assemblies to bundle from the restore graph."""
-    if not ASSETS_FILE.is_file():
+def classify_publish_output() -> list[Path]:
+    """Return the files to stage, failing on any dependency we have not accounted for."""
+    if not PUBLISH_DIR.is_dir():
         raise SystemExit(
-            f"ERROR: {ASSETS_FILE.relative_to(REPO_ROOT)} is missing. "
-            "Run 'dotnet restore' first."
+            f"ERROR: {PUBLISH_DIR.relative_to(REPO_ROOT)} does not exist. "
+            "Publish the project first, or drop --no-build."
         )
 
-    assets = json.loads(ASSETS_FILE.read_text())
-    target = assets["targets"][".NETStandard,Version=v2.0"]
-    folders = [Path(folder) for folder in assets["packageFolders"]]
+    published = {path.name: path for path in PUBLISH_DIR.iterdir() if path.is_file()}
 
-    resolved = []
-    for name in BUNDLED_PACKAGES:
-        entry = next(
-            (key for key in target if key.split("/")[0].lower() == name.lower()), None
+    missing = [name for name in OWN_FILES + BUNDLED_ASSEMBLIES if name not in published]
+    if missing:
+        raise SystemExit("ERROR: missing from the publish output: " + ", ".join(missing))
+
+    accounted = set(OWN_FILES + BUNDLED_ASSEMBLIES + UNITY_PROVIDED_ASSEMBLIES)
+    unaccounted = sorted(
+        name for name in published if name.endswith(".dll") and name not in accounted
+    )
+    if unaccounted:
+        raise SystemExit(
+            "ERROR: the publish output contains dependencies this script does not know "
+            "how to place: " + ", ".join(unaccounted) + ".\n"
+            "Add each one to BUNDLED_ASSEMBLIES to redistribute it (and record it in "
+            "Third Party Notices.md), or to UNITY_PROVIDED_ASSEMBLIES if Unity already "
+            "supplies it."
         )
-        if entry is None:
-            raise SystemExit(f"ERROR: {name} is not part of the restore graph.")
 
-        library = assets["libraries"][entry]
-        runtime_items = [
-            item for item in target[entry].get("runtime", {}) if not item.endswith("_._")
-        ]
-        if not runtime_items:
-            raise SystemExit(f"ERROR: {entry} contributes no runtime assembly.")
-
-        for item in runtime_items:
-            candidates = [folder / library["path"] / item for folder in folders]
-            match = next((path for path in candidates if path.is_file()), None)
-            if match is None:
-                raise SystemExit(f"ERROR: could not locate {item} for {entry}.")
-            resolved.append(match)
-
-    return resolved
+    return [published[name] for name in OWN_FILES + BUNDLED_ASSEMBLIES]
 
 
 def stage_runtime() -> list[str]:
     RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 
-    sources = [BUILD_OUTPUT / "CompasPb.dll", BUILD_OUTPUT / "CompasPb.xml"]
-    missing = [path for path in sources if not path.is_file()]
-    if missing:
-        raise SystemExit(
-            "ERROR: missing build output: "
-            + ", ".join(str(path.relative_to(REPO_ROOT)) for path in missing)
-            + ". Build the project first, or drop --no-build."
-        )
-
-    sources += resolve_bundled_assemblies()
+    sources = classify_publish_output()
     expected = {path.name for path in sources}
 
     for path in sources:
@@ -308,7 +315,7 @@ def main() -> int:
     parser.add_argument(
         "--no-build",
         action="store_true",
-        help="stage the existing Release build instead of compiling first",
+        help="stage the existing publish output instead of publishing first",
     )
     parser.add_argument(
         "--validate",
@@ -318,7 +325,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.no_build:
-        build_assembly()
+        publish_assembly()
 
     version = read_version()
     staged = stage_runtime()
