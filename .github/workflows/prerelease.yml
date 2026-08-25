@@ -1,0 +1,75 @@
+name: prerelease
+
+# Publishes an unreleased build of CompasPb to GitHub Packages so downstream
+# repositories can consume changes before they reach NuGet.org. Versions come from
+# nbgv with PublicRelease=false, giving 1.0.0-g<sha>, which sorts below the eventual
+# stable release and never collides with it.
+#
+# Run it from any branch: Actions -> prerelease -> Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch compas_pb assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python fetch_compas_pb.py
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Pack prerelease
+        run: |
+          dotnet pack src/CompasPb/CompasPb.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:PublicRelease=false \
+            -o "${{ github.workspace }}/nupkg"
+
+          ls -1 "${{ github.workspace }}/nupkg"
+
+      - name: Push to GitHub Packages
+        run: |
+          dotnet nuget push "${{ github.workspace }}/nupkg/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
+
+      - name: Summary
+        run: |
+          VERSION=$(ls "${{ github.workspace }}"/nupkg/CompasPb.*.nupkg \
+            | head -1 | sed -E 's/.*CompasPb\.(.*)\.nupkg/\1/')
+          {
+            echo "### CompasPb prerelease published"
+            echo
+            echo "Version \`${VERSION}\` is on GitHub Packages."
+            echo "Consumers restoring \`1.0.0-*\` from"
+            echo "\`https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json\`"
+            echo "will pick it up. Reading it needs a token with \`read:packages\`."
+          } >> "$GITHUB_STEP_SUMMARY"
