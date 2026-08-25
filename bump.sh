@@ -74,7 +74,12 @@ awk -v release_header="## [${NEW_VERSION}] - ${RELEASE_DATE}" '
 mv "$CHANGELOG_TMP" CHANGELOG.md
 trap - EXIT
 
-git add version.json CHANGELOG.md
+# Restage the Unity package so the release tag carries assemblies built from
+# this version. OpenUPM packs the tagged tree as-is; it never runs a build.
+PYTHON_COMMAND=${PYTHON_COMMAND:-python3}
+"$PYTHON_COMMAND" build_upm.py --validate
+
+git add version.json CHANGELOG.md upm
 git commit -m "Prepare release ${NEW_VERSION}"
 
 echo "Prepared ${RELEASE_BRANCH} for CompasPb ${NEW_VERSION}."

@@ -75,6 +75,14 @@ jobs:
             exit 0
           fi
 
+          UPM_VERSION=$(jq -r '.version' upm/dev.compas.compas-pb/package.json)
+
+          if [[ "$UPM_VERSION" != "$VERSION" ]]; then
+            echo "ERROR: the Unity package is stale at ${UPM_VERSION}, expected ${VERSION}."
+            echo "Run 'python3 build_upm.py' and commit upm/ before releasing."
+            exit 1
+          fi
+
           echo "Release detected: ${VERSION}"
           echo "is_release=true" >> $GITHUB_OUTPUT
           echo "version=${VERSION}" >> $GITHUB_OUTPUT

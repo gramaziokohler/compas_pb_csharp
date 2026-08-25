@@ -70,3 +70,41 @@ jobs:
           name: CompasPb-CSharp-Artifact-${{ matrix.os }}-${{ matrix.framework }}
           path: src/CompasPb/bin/Release/${{ matrix.framework }}/
           retention-days: 1
+
+  upm:
+    name: upm package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch compas_pb assets
+        run: python fetch_compas_pb.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build and validate the Unity package
+        run: python build_upm.py --validate
+
+      - name: Upload Unity package
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev.compas.compas-pb
+          path: upm/dev.compas.compas-pb
+          retention-days: 1

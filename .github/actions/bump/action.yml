@@ -20,6 +20,21 @@ runs:
         dotnet tool install -g nbgv --version 3.9.50
         echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Fetch compas_pb assets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: python fetch_compas_pb.py
+
+    - name: Restore
+      shell: bash
+      run: dotnet restore
+
     - name: Configure git
       shell: bash
       run: |
@@ -28,6 +43,8 @@ runs:
 
     - name: Prepare release branch
       shell: bash
+      env:
+        PYTHON_COMMAND: python
       run: bash ./bump.sh "${{ inputs.bump }}"
 
     - name: Push release branch
