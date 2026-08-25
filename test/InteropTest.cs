@@ -7,6 +7,8 @@ using Xunit;
 public class InteropTest
 {
     [Fact]
+    // Deliberately a compas_pb 1.1 payload read by a 1.2 runtime: the wire format is
+    // compatible across a major version, and this is the regression test for that.
     public void PythonCompasPb11Model_DeserializesFallbackAndKnownMessages()
     {
         var fixturePath = Path.Combine(
@@ -38,10 +40,10 @@ public class InteropTest
     }
 
     [Fact]
-    public void CSharpPayload_MatchesBytesProducedByPythonCompasPb11()
+    public void CSharpPayload_MatchesBytesProducedByPythonCompasPb12()
     {
         const string pythonPayload =
-            "Cig6JgoCICoKCSkAAAAAAAAIQAoPEg0aC2Jhc2U2NDpBUDg9CgQSAggAEgUxLjEuMA==";
+            "Cig6JgoCICoKCSkAAAAAAAAIQAoPEg0aC2Jhc2U2NDpBUDg9CgQSAggAEgUxLjIuMA==";
         var input = new List<object?> { 42, 3.0, new byte[] { 0, 255 }, null };
 
         var csharpPayload = Serializer.PackAsBytes(Serializer.PackAsAnyData(input));

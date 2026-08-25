@@ -1,4 +1,8 @@
-"""Regenerate the deterministic Python-to-C# compas_pb 1.1 fixture."""
+"""Regenerate the deterministic Python-to-C# compas_pb 1.1 fixture.
+
+Run this with compas_pb 1.1 installed. The fixture is deliberately pinned to 1.1 so the
+C# tests keep proving that a payload from an older minor version still reads.
+"""
 
 from pathlib import Path
 from uuid import UUID

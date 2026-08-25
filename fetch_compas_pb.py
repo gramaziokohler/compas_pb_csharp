@@ -12,9 +12,9 @@ from pathlib import Path
 import os
 
 
-compas_pb_version = "1.1.0"
+compas_pb_version = "1.2.0"
 csharp_generator_version = "31.1"
-csharp_asset_sha256 = "3062b96f213dcccabd9aa8888b85137d4e277be03ce6644879d45503cc9d5290"
+csharp_asset_sha256 = "29c23d820c8f1d1a7a384dc55de2544a5c3c8c170714c74afe585924f55ad4db"
 repo_url = "https://github.com/compas-dev/compas_pb"
 
 

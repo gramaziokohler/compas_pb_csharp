@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking Changes
 
-- Upgrade the bundled `compas_pb` schema and generated C# bindings from 1.0 to 1.1
+- Upgrade the bundled `compas_pb` schema and generated C# bindings from 1.0 to 1.2
 - Serialize integers, floating-point values, dictionaries, and lists through their dedicated `AnyData` fields
 
 ### Features

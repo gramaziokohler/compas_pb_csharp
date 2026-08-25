@@ -7,7 +7,7 @@ so geometry and data structures can be exchanged with COMPAS applications
 written in Python.
 
 The package ships the `netstandard2.0` build of `CompasPb.dll` together with the
-`compas_pb` 1.1 wire-format bindings. No protobuf sources have to be generated
+`compas_pb` 1.2 wire-format bindings. No protobuf sources have to be generated
 and no DLLs have to be copied into `Assets/` by hand.
 
 ## Requirements

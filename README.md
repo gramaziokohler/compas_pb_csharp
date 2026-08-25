@@ -16,7 +16,7 @@ A COMPAS_PB extension which lets you serialize and deserialize COMPAS `Data` typ
 ## Installation
 
 `CompasPb` is distributed as a NuGet package. Version `1.0.0` contains the generated
-C# bindings and runtime support for the `compas_pb` 1.1 wire format; consumers do
+C# bindings and runtime support for the `compas_pb` 1.2 wire format; consumers do
 not need to generate protobuf sources or copy DLLs into their projects manually.
 
 ### Install from NuGet
@@ -98,7 +98,7 @@ the `netstandard2.0` or `net48` package assets.
 
 Building the repository requires Git, Python 3, and the .NET 9 SDK. The generated
 C# protobuf files are intentionally not committed; the fetch script downloads the
-pinned `compas_pb` 1.1 release assets before the build.
+pinned `compas_pb` 1.2 release assets before the build.
 
 ```bash
 git clone https://github.com/gramaziokohler/compas_pb_csharp.git

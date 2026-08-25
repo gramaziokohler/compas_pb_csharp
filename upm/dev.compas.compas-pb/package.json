@@ -2,7 +2,7 @@
   "name": "dev.compas.compas-pb",
   "version": "1.0.0",
   "displayName": "COMPAS Protobuf",
-  "description": "Serialize and deserialize COMPAS Data types with Protocol Buffers. Provides the compas_pb 1.1 wire format bindings and runtime, so Unity projects can exchange geometry and data structures with COMPAS applications written in Python.",
+  "description": "Serialize and deserialize COMPAS Data types with Protocol Buffers. Provides the compas_pb 1.2 wire format bindings and runtime, so Unity projects can exchange geometry and data structures with COMPAS applications written in Python.",
   "unity": "2021.3",
   "license": "MIT",
   "keywords": [
