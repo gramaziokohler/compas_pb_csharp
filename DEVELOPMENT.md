@@ -47,6 +47,69 @@ git push --set-upstream origin release/v1.0.0
 
 ---
 
+## The Unity package
+
+`upm/dev.compas.compas-pb` is the Unity Package Manager distribution published
+to [OpenUPM](https://openupm.com/). OpenUPM packs the tagged tree exactly as it is
+committed and never runs a build, so the compiled assemblies under `Runtime/` are
+tracked in git.
+
+`build_upm.py` produces that folder:
+
+```bash
+python3 build_upm.py
+```
+
+It compiles `CompasPb.csproj` for `netstandard2.0` with `PublicRelease=true`, stages
+`CompasPb.dll`, `CompasPb.xml`, and `Google.Protobuf.dll` into `Runtime/`, syncs the
+package version from `version.json`, and writes
+a `.meta` file for every packaged asset. GUIDs are derived from each asset's package
+path and any GUID already committed is preserved, so regenerating the package never
+invalidates references in consumer projects.
+
+| Flag | Effect |
+|---|---|
+| `--no-build` | Stage the existing `Release/netstandard2.0` output instead of compiling |
+| `--validate` | Fail if the staged layout is not publishable |
+
+`bump.sh` runs `build_upm.py --validate` and commits `upm/` alongside `version.json`
+and `CHANGELOG.md`, so a release branch always carries assemblies built from its own
+version. The `check-release` job refuses to release when `package.json` and the
+changelog version disagree, and the `upm` job in `build.yml` rebuilds and validates
+the package on every push and pull request.
+
+The changelog and license are not bundled. `changelogUrl` and `licensesUrl` in
+`package.json` point at the repository copies instead, so there is nothing to keep
+in sync. `Third Party Notices.md` does ship: the BSD-3-Clause terms of the
+redistributed `Google.Protobuf` require the notice to accompany the binary.
+
+### Which assemblies ship
+
+Only `Google.Protobuf` is redistributed. `Newtonsoft.Json` is declared as the
+`com.unity.nuget.newtonsoft-json` package dependency, and `System.Memory`,
+`System.Buffers`, `System.Numerics.Vectors`, and
+`System.Runtime.CompilerServices.Unsafe` are part of the Unity 2021.3+ class
+libraries. Bundling any of them would produce duplicate-assembly errors. Adjust
+`BUNDLED_PACKAGES` in `build_upm.py` if a new NuGet dependency has to travel with
+the package, and record it in `Third Party Notices.md`.
+
+### Submitting to OpenUPM
+
+OpenUPM builds from this repository's release tags. Submit the package once at
+[openupm.com/packages/add](https://openupm.com/packages/add/) with:
+
+| Field | Value |
+|---|---|
+| Repository | `gramaziokohler/compas_pb_csharp` |
+| Package name | `dev.compas.compas-pb` |
+| Package folder | `upm/dev.compas.compas-pb` |
+| Version tag prefix | none (tags are `vX.Y.Z`) |
+
+After that, every `vX.Y.Z` tag pushed by `release.yml` is picked up automatically.
+The scope `dev.compas` must be registered to this repository's maintainers.
+
+---
+
 ## What CI does on merge
 
 On every push to `main`, `release.yml` compares the first versioned changelog
@@ -142,5 +205,6 @@ On non-release branches, versions get a `-g<sha>` suffix (e.g. `0.2.0-gd9f645a`)
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | `build.yml` | Push / PR to `main` | Format check, build, test |
+| `build.yml` | Push / PR to `main` | Build and validate the Unity package |
 | `release.yml` | Manual dispatch | Prepare and push a versioned release branch |
 | `release.yml` | Push to `main` | Detect an untagged release, publish it, tag it, and create the GitHub Release |

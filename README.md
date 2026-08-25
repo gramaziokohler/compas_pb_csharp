@@ -50,6 +50,36 @@ dotnet restore
 NuGet restores `Google.Protobuf`, `Newtonsoft.Json`, and any framework-specific
 dependencies transitively.
 
+### Install in Unity
+
+Unity projects install the package from
+[OpenUPM](https://openupm.com/packages/dev.compas.compas-pb/) instead of NuGet:
+
+```bash
+openupm add dev.compas.compas-pb
+```
+
+Or add the scoped registry to `Packages/manifest.json`:
+
+```json
+{
+  "scopedRegistries": [
+    {
+      "name": "package.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": ["dev.compas"]
+    }
+  ],
+  "dependencies": {
+    "dev.compas.compas-pb": "1.0.0"
+  }
+}
+```
+
+The Unity package requires Unity 2021.3 or newer and pulls in `Newtonsoft.Json`
+through the `com.unity.nuget.newtonsoft-json` dependency. See the
+[package README](upm/dev.compas.compas-pb/README.md) for details.
+
 ### Supported target frameworks
 
 The package provides assemblies for:

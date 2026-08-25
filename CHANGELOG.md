@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Add registered fallback reconstruction by COMPAS `dtype`
 - Add loaded-assembly discovery for external protobuf messages
 - Add `CompasPbRegistrations` assembly attribute so a package's conversions register by being referenced instead of from application startup
+- Add the `dev.compas.compas-pb` Unity Package Manager distribution for publication to OpenUPM
 
 ### Tests
 
@@ -29,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
 - Fetch the exact pinned C# binding asset from the official `compas-dev/compas_pb` release and verify its checksum
 - Preserve the packed NuGet and symbol packages as release workflow artifacts
+- Add `build_upm.py` to compile, stage, and validate the Unity package, and run it from the release preparation script
 
 ### Bug Fixes
 
