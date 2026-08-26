@@ -96,12 +96,13 @@ so the commit message *is* the changelog entry — write it accordingly. A hand-
 line duplicates whatever the generator produces from the same commit.
 
 One exception, for the first release only. `CHANGELOG.md` carries a hand-written
-`## [Unreleased]` section describing work whose commits predate Conventional Commits
-and which release-please therefore cannot see: the runtime registry, the assembly
-attribute, the NuGet and Unity packaging, the MIT license, and the 1.0/1.1 wire-format
-upgrades. release-please inserts its generated entry without touching that block, so
-merge those lines into the generated `1.0.0` entry in the first release pull request and
-delete the block there. After that the file is entirely generated.
+`## [Unreleased]` section from before the convention was adopted. Most of what it
+describes is now readable from the commits, but the steps that landed on `main` before
+release-please are not — the `compas_pb` 0.5 and 1.1 wire-format upgrades, the switch
+from `System.Text.Json` to `Newtonsoft.Json`, and the NuGet publishing setup.
+release-please inserts its generated entry without touching that block, so carry the
+lines that survive into the generated `1.0.0` entry in the first release pull request
+and delete the block there. After that the file is entirely generated.
 
 To force a specific version regardless of what the commits imply, put a
 `Release-As: X.Y.Z` footer in a commit body:
