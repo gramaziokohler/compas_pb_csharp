@@ -1,12 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <!-- The runtime multi-targets; the example only needs to demonstrate the API once. -->
         <TargetFramework>net9.0</TargetFramework>
     </PropertyGroup>
 
-    <ItemGroup>
-        <Reference Include="CompasPb">
-            <HintPath>path\to\CompasPb.dll</HintPath>
-        </Reference>
-        <PackageReference Include="Google.Protobuf" Version="3.31.0" />
+    <!-- A ProjectReference, not a HintPath to a prebuilt DLL, so the example is compiled against
+         the sources in this repository and a breaking API change shows up as a build failure.
+         Google.Protobuf arrives transitively from CompasPb. -->
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../src/CompasPb/CompasPb.csproj" />
     </ItemGroup>
 </Project>

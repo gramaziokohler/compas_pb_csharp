@@ -64,6 +64,13 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal -f ${{ matrix.framework }}
 
+      # The example compiles against the sources through a ProjectReference, so building it is
+      # what catches a breaking API change that the tests happen not to exercise.
+      - name: Build the example
+        if: matrix.framework == 'net9.0'
+        working-directory: ${{ github.workspace }}
+        run: dotnet build example/UserCase/CompasPb.UserCase.csproj --configuration Release
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
