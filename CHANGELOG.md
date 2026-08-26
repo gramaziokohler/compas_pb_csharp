@@ -2,45 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-
-### Breaking Changes
-
-- Upgrade the bundled `compas_pb` schema and generated C# bindings from 1.0 to 1.2
-- Serialize integers, floating-point values, dictionaries, and lists through their dedicated `AnyData` fields
-
-### Features
-
-- Add byte-array serialization using the compas_pb base64 representation
-- Add `ICompasFallback` support for interoperable fallback objects such as `compas_model` models
-- Preserve deserialization compatibility with legacy dictionaries and lists packed inside protobuf `Any` values
-- Add function-based downstream type registration with inheritance-aware serializer lookup
-- Add registered fallback reconstruction by COMPAS `dtype`
-- Add loaded-assembly discovery for external protobuf messages
-- Add `CompasPbRegistrations` assembly attribute so a package's conversions register by being referenced instead of from application startup
-- Add the `dev.compas.compas-pb` Unity Package Manager distribution for publication to OpenUPM
-
-### Tests
-
-- Add compas_pb version compatibility coverage
-- Add a Python-generated `compas_model` fixture to verify Python-to-C# wire interoperability
-
-### Development
-
-- Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
-- Fetch the exact pinned C# binding asset from the official `compas-dev/compas_pb` release and verify its checksum
-- Preserve the packed NuGet and symbol packages as release workflow artifacts
-- Add `build_upm.py` to compile, stage, and validate the Unity package
-- Replace the hand-rolled release script and changelog-parsing trigger with release-please
-- Publish the Unity package to a dedicated `upm` branch tagged `upm/vX.Y.Z` so compiled assemblies stay out of `main`
-
-### Bug Fixes
-
-- Match `Any` type URLs by their full protobuf name after the last slash instead of by collision-prone C# class name
-- Remove duplicate README inclusion from the NuGet package build
-- Fix the build and documentation links embedded in the NuGet README
-- Add the missing root `LICENSE` file that the README license badge links to
-
 ## [0.1.0] - 2026-08-09
 
 ### Features

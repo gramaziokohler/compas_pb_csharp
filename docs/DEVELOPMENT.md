@@ -95,14 +95,22 @@ Do not hand-edit `CHANGELOG.md`. release-please generates it from the commit mes
 so the commit message *is* the changelog entry — write it accordingly. A hand-written
 line duplicates whatever the generator produces from the same commit.
 
-One exception, for the first release only. `CHANGELOG.md` carries a hand-written
-`## [Unreleased]` section from before the convention was adopted. Most of what it
-describes is now readable from the commits, but the steps that landed on `main` before
-release-please are not — the `compas_pb` 0.5 and 1.1 wire-format upgrades, the switch
-from `System.Text.Json` to `Newtonsoft.Json`, and the NuGet publishing setup.
-release-please inserts its generated entry without touching that block, so carry the
-lines that survive into the generated `1.0.0` entry in the first release pull request
-and delete the block there. After that the file is entirely generated.
+What to expect for the first release. The `0.1.0` tag sits on a December 2025 test
+commit, and `version.json` has read `1.0.0` ever since, so `1.0.0` is the first published
+release and release-please will gather every commit since that tag into it — including
+the ones `CHANGELOG.md` already lists under `## [0.1.0]`. That is correct rather than a
+bug: nothing was ever published, so it all ships in `1.0.0`. Expect the `## [0.1.0]`
+section to overlap the generated entry, and leave it as the internal record.
+
+Read the generated entry before merging the release pull request. It inherits every
+`feat:` and `fix:` subject written since that tag, and some of them were never meant for
+public release notes. Reword them in the release pull request; that is the one place
+editing the changelog by hand is expected.
+
+Note also that `release-please-config.json` sets `include-v-in-tag`, so it looks for
+`v0.1.0` while the existing tag is `0.1.0`. It falls back to `bootstrap-sha`, which
+points at the same commit, so the range is right either way — but the two will not
+line up again until a `v`-prefixed tag exists.
 
 To force a specific version regardless of what the commits imply, put a
 `Release-As: X.Y.Z` footer in a commit body:
