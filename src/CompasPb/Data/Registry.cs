@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Google.Protobuf;
+using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
@@ -23,16 +24,20 @@ public static class Registry
     {
         public ProtobufRegistration(
             System.Type messageType,
+            MessageDescriptor descriptor,
             Func<ByteString, IMessage> parser,
             Func<IMessage, object?> deserializer
         )
         {
             MessageType = messageType;
+            Descriptor = descriptor;
             Parser = parser;
             Deserializer = deserializer;
         }
 
         public System.Type MessageType { get; }
+
+        public MessageDescriptor Descriptor { get; }
 
         public Func<ByteString, IMessage> Parser { get; }
 
@@ -74,6 +79,10 @@ public static class Registry
     );
 
     private static readonly ConcurrentDictionary<System.Type, byte> InvokedRegistrars = new();
+
+    // Rebuilt lazily whenever a protobuf type is registered. protobuf-json needs a descriptor
+    // for every message that can appear inside an Any, which is what the registry already holds.
+    private static TypeRegistry? JsonTypeRegistry;
 
     static Registry()
     {
@@ -191,7 +200,7 @@ public static class Registry
             }
 
             RegisterMessage(
-                prototype.Descriptor.FullName,
+                prototype.Descriptor,
                 type,
                 value => prototype.Descriptor.Parser.ParseFrom(value),
                 message => message,
@@ -307,6 +316,34 @@ public static class Registry
                 exception.InnerException
             );
         }
+    }
+
+    /// <summary>
+    /// The protobuf <see cref="TypeRegistry"/> backing the JSON format, covering every message
+    /// this registry knows about.
+    /// </summary>
+    /// <remarks>
+    /// protobuf-json cannot read or write an <c>Any</c> field without a descriptor for the
+    /// message inside it. The binary path can resolve a type lazily when a lookup misses, but
+    /// <see cref="JsonParser"/> and <see cref="JsonFormatter"/> need the whole set up front, so
+    /// this scans loaded assemblies before handing the registry over. Python's
+    /// <c>MessageToJson</c> gets the same coverage from the default descriptor pool.
+    /// </remarks>
+    public static TypeRegistry GetJsonTypeRegistry()
+    {
+        DiscoverLoadedAssemblies();
+
+        var cached = JsonTypeRegistry;
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        var built = TypeRegistry.FromMessages(
+            ProtobufTypes.Values.Select(registration => registration.Descriptor)
+        );
+        JsonTypeRegistry = built;
+        return built;
     }
 
     public static IEnumerable<System.Type> GetRegisteredTypes()
@@ -456,7 +493,7 @@ public static class Registry
         var prototype = new TMessage();
         var parser = new MessageParser<TMessage>(() => new TMessage());
         RegisterMessage(
-            prototype.Descriptor.FullName,
+            prototype.Descriptor,
             typeof(TMessage),
             value => parser.ParseFrom(value),
             message => deserializer((TMessage)message),
@@ -465,16 +502,17 @@ public static class Registry
     }
 
     private static void RegisterMessage(
-        string protobufName,
+        MessageDescriptor descriptor,
         System.Type messageType,
         Func<ByteString, IMessage> parser,
         Func<IMessage, object?> deserializer,
         bool overwriteDeserializer
     )
     {
+        string protobufName = descriptor.FullName;
         _ = ProtobufTypes.AddOrUpdate(
             protobufName,
-            _ => new ProtobufRegistration(messageType, parser, deserializer),
+            _ => new ProtobufRegistration(messageType, descriptor, parser, deserializer),
             (_, existing) =>
             {
                 if (existing.MessageType != messageType)
@@ -487,10 +525,13 @@ public static class Registry
                 }
 
                 return overwriteDeserializer
-                    ? new ProtobufRegistration(messageType, parser, deserializer)
+                    ? new ProtobufRegistration(messageType, descriptor, parser, deserializer)
                     : existing;
             }
         );
+
+        // The set of known descriptors changed, so the cached JSON registry is stale.
+        JsonTypeRegistry = null;
     }
 
     private static ProtobufRegistration? DiscoverLoadedAssembliesAndFind(string protobufName)

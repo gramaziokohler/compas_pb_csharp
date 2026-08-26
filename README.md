@@ -1,14 +1,12 @@
 # COMPAS_PB C# Wrapper
 
 <p align="center">
-</p>
-
-<p align="center">
     <a href="#"><img src="https://img.shields.io/badge/C%23-latest-239120.svg?logo=csharp" alt="C# latest"></a>
-    <a href="#"><img src="https://img.shields.io/badge/.NET-netstandard2.0%20%7C%20net48%20%7C%20net9.0-blue?logo=dotnet" alt="Target Frameworks"></a>
+    <a href="https://www.nuget.org/packages/CompasPb"><img src="https://img.shields.io/badge/.NET-netstandard2.0%20%7C%20net48%20%7C%20net9.0-blue?logo=dotnet" alt="Target Frameworks"></a>
     <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
     <a href="https://github.com/gramaziokohler/compas_pb_csharp/actions"><img src="https://github.com/gramaziokohler/compas_pb_csharp/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
-    <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/ARCHITECTURE.md"><img src="https://img.shields.io/badge/docs-runtime-brightgreen.svg" alt="Runtime Documentation"></a>
+    <a href="https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/docs-runtime-brightgreen.svg" alt="Runtime Documentation"></a>
+    <a href="https://compas.dev/mission-control/#compas_pb"><img src="https://compas.dev/badge.svg" alt="Made with COMPAS"></a>
 </p>
 
 A COMPAS_PB extension which lets you serialize and deserialize COMPAS `Data` types using protobuf in C#.
@@ -127,16 +125,22 @@ dotnet add path/to/YourProject.csproj package CompasPb \
 
 ## Usage
 
-There are three ways to use this library depending on your context.
+`CompasPbSerializer` is the runtime's single entry point, in both directions and in both
+formats. It lives in the `CompasPb` namespace; the generated message types it packs live in
+`CompasPb.Data`, so most files need both `using` directives. The `Serializer` and
+`Deserializer` helpers behind it are internal — callers never need to reach for them.
 
-### Static API (Grasshopper / Unity / simple scripts)
+All protobuf message types in the assembly are registered automatically at startup, so no
+manual type registration is needed for the built-in COMPAS geometry.
 
-The static `Serializer` and `Deserializer` classes work without any setup:
+### Single object
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 
-// Pack
+var serializer = new CompasPbSerializer();
+
 var frame = new FrameData
 {
     Name = "myFrame",
@@ -145,59 +149,27 @@ var frame = new FrameData
     Yaxis = new VectorData { X = 0.0f, Y = 1.0f, Z = 0.0f },
 };
 
-byte[] bytes = Serializer.PackAsBytes(Serializer.PackAsAnyData(frame));
-
-// Unpack — returns object?, cast manually
-AnyData anyData = Deserializer.UnpackBytes(bytes);
-object? result  = Deserializer.UnpackAnyData(anyData);
-var unpacked    = result as FrameData;
-```
-
-### Typed instance API (known type at compile time)
-
-Use `CompasPbSerializer` directly for a cleaner typed experience — no casting needed:
-
-```csharp
-using CompasPb.Data;
-
-var serializer = new CompasPbSerializer();
-
-// Pack
+// Binary (protobuf)
 byte[] bytes = serializer.Pack(frame);
-
-// Unpack — typed, no cast
 FrameData? unpacked = serializer.Unpack<FrameData>(bytes);
 
-// Unpack — dynamic, when you don't know the type ahead of time
+// JSON
+string json = serializer.PackAsJson(frame);
+FrameData? fromJson = serializer.UnpackJson<FrameData>(json);
+
+// Dynamic — when you don't know the type ahead of time
 object? result = serializer.Unpack(bytes);
-```
-
-### Dependency Injection
-
-Register `ICompasPbSerializer` in your DI container:
-
-```csharp
-// Program.cs / Startup.cs
-services.AddSingleton<ICompasPbSerializer, CompasPbSerializer>();
-
-// In any service or controller
-public class RobotService(ICompasPbSerializer serializer)
-{
-    public FrameData? GetFrame(byte[] bytes)
-        => serializer.Unpack<FrameData>(bytes);
-
-    public byte[] SendFrame(FrameData frame)
-        => serializer.Pack(frame);
-}
+object? fromJsonDynamic = serializer.UnpackJson(json);
 ```
 
 ### Nested data structures
 
-All three options support arbitrarily nested lists and dictionaries:
+Supports arbitrarily nested lists and dictionaries:
 
 ```csharp
-using CompasPb.Data;
 using System.Collections.Generic;
+using CompasPb;
+using CompasPb.Data;
 
 var serializer = new CompasPbSerializer();
 
@@ -211,8 +183,34 @@ var data = new Dictionary<string, object>
     },
 };
 
-byte[] bytes  = serializer.Pack(data);
+// Works with both binary and JSON
+byte[] bytes   = serializer.Pack(data);
 object? result = serializer.Unpack(bytes);
+
+string json       = serializer.PackAsJson(data);
+object? fromJson  = serializer.UnpackJson(json);
+```
+
+### Dependency Injection
+
+Register `ICompasPbSerializer` in your DI container:
+
+```csharp
+using CompasPb;
+using CompasPb.Data;
+
+// Program.cs / Startup.cs
+services.AddSingleton<ICompasPbSerializer, CompasPbSerializer>();
+
+// In any service or controller
+public class RobotService(ICompasPbSerializer serializer)
+{
+    public FrameData? GetFrame(byte[] bytes)
+        => serializer.Unpack<FrameData>(bytes);
+
+    public byte[] SendFrame(FrameData frame)
+        => serializer.Pack(frame);
+}
 ```
 
 ### Register domain-model types
@@ -294,6 +292,7 @@ for existing model classes.
 Use `CompasPbHttpClient` to send and receive data from a running `compas_pb` Python server:
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 using CompasPb.Route;
 
@@ -307,14 +306,18 @@ await client.SendAsync(frame);
 FrameData? result = await client.ReceiveAsync<FrameData>();
 
 // Receive dynamic — when the type is unknown
-object? result = await client.ReceiveAsync();
+object? dynamic = await client.ReceiveAsync();
 ```
 
 ## Documentation
 
-For further "getting started" instructions, a tutorial, examples, and an API reference,
-see the [runtime architecture](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/ARCHITECTURE.md)
-and the upstream
+- [Architecture](docs/ARCHITECTURE.md) — how this runtime implements the `compas_pb` contract.
+- [Using CompasPb from a domain package](docs/DOMAIN_PACKAGE.md) — shipping your own `.proto`
+  types and registering them.
+- [Development](docs/DEVELOPMENT.md) — building, testing, and releasing this repository.
+
+`compas_pb` is a cross-language format; Python is the authoritative implementation. For the
+format itself, the runtime contract, and the wider ecosystem, see the upstream
 [compas_pb documentation](https://compas.dev/compas_pb/latest/).
 
 ## Issue Tracker

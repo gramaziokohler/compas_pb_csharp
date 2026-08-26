@@ -5,7 +5,11 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
-public static class Deserializer
+/// <summary>
+/// Decodes the compas_pb wire format back into objects. Internal: callers go through
+/// <see cref="CompasPbSerializer"/>, which is the runtime's single entry point out.
+/// </summary>
+internal static class Deserializer
 {
     public static AnyData UnpackBytes(byte[] data)
     {
@@ -14,6 +18,24 @@ public static class Deserializer
             throw new ArgumentNullException(nameof(data));
         }
         var message = MessageData.Parser.ParseFrom(data);
+        ValidateVersion(message.Version);
+        return message.Data;
+    }
+
+    /// <summary>
+    /// Parses a protobuf-JSON string produced by any compas_pb runtime, and checks its version.
+    /// </summary>
+    public static AnyData UnpackJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new ArgumentException("JSON string cannot be null or empty.", nameof(json));
+        }
+
+        var parser = new JsonParser(
+            JsonParser.Settings.Default.WithTypeRegistry(Registry.GetJsonTypeRegistry())
+        );
+        var message = parser.Parse<MessageData>(json);
         ValidateVersion(message.Version);
         return message.Data;
     }

@@ -61,6 +61,7 @@ Pin the trailing `#v<version>` tag; without it Unity tracks the default branch.
 ## Usage
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 using UnityEngine;
 
@@ -89,11 +90,12 @@ public class CompasPbExample : MonoBehaviour
 `CompasPbHttpClient` can exchange the same payloads with a running `compas_pb`
 Python server over HTTP.
 
-The static `Serializer` / `Deserializer` API, typed `CompasPbSerializer`,
-downstream type registration through `Registry`, and COMPAS JSON-dump fallbacks
-all work exactly as they do outside Unity. See the
+Binary and JSON packing, downstream type registration through `Registry`, and
+COMPAS JSON-dump fallbacks all work exactly as they do outside Unity.
+`CompasPbSerializer` and `ICompasPbSerializer` live in the `CompasPb` namespace;
+the generated message types live in `CompasPb.Data`. See the
 [repository README](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/README.md)
-and the [runtime architecture notes](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/ARCHITECTURE.md)
+and the [runtime architecture notes](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/ARCHITECTURE.md)
 for the full API.
 
 ### IL2CPP and code stripping

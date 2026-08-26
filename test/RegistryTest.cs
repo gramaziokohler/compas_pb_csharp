@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using CompasPb;
 using CompasPb.Data;
+using CompasPb.Test.Domain;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Xunit;
@@ -123,6 +125,144 @@ public class RegistryTest
         _ = Assert.Throws<NotSupportedException>(() =>
             Deserializer.UnpackAnyData(new AnyData { Message = collidingShortName })
         );
+    }
+
+    [Theory]
+    [InlineData("type.googleapis.com/compas_pb.data.PointData")]
+    [InlineData("custom.registry/compas_pb.data.PointData")]
+    [InlineData("compas_pb.data.PointData")]
+    public void GetType_ResolvesTheFullNameAfterTheLastSlash(string typeUrl)
+    {
+        Assert.Equal(typeof(PointData), Registry.GetType(typeUrl));
+    }
+
+    [Fact]
+    public void GetType_DoesNotResolveASimpleName()
+    {
+        // The runtime contract keys on the full protobuf name. Matching "PointData" alone would
+        // collide the moment a domain package ships a message of the same name.
+        Assert.Null(Registry.GetType("PointData"));
+    }
+
+    [Fact]
+    public void GetType_UnknownTypeUrl_ReturnsNull()
+    {
+        Assert.Null(Registry.GetType("type.googleapis.com/some.unknown.Type"));
+    }
+
+    [Fact]
+    public void RegisterAssembly_SameAssemblyTwice_IsANoOp()
+    {
+        Registry.RegisterAssembly(typeof(Registry).Assembly);
+        Registry.RegisterAssembly(typeof(Registry).Assembly);
+
+        Assert.Equal(typeof(PointData), Registry.GetType("compas_pb.data.PointData"));
+    }
+
+    [Fact]
+    public void RegisterAssembly_RejectsNull()
+    {
+        _ = Assert.Throws<ArgumentNullException>(() => Registry.RegisterAssembly(null!));
+    }
+
+    [Fact]
+    public void RegisterAssembly_DomainPackageProto_ResolvesType()
+    {
+        // ToolPathData is generated from test/Protos/toolpath.proto into the test assembly, which
+        // stands in for a domain package shipping its own bindings.
+        Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
+
+        Assert.Equal(typeof(ToolPathData), Registry.GetType("test.domain.ToolPathData"));
+    }
+
+    [Fact]
+    public void RegisterAssembly_DomainPackageProto_RoundTrips()
+    {
+        Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
+
+        var toolPath = new ToolPathData
+        {
+            Name = "milling_01",
+            ToolFrame = new ToolFrameData
+            {
+                X = 1.0,
+                Y = 2.0,
+                Z = 3.0,
+            },
+        };
+        toolPath.Segments.Add(
+            new ToolFrameData
+            {
+                X = 10.0,
+                Y = 20.0,
+                Z = 30.0,
+            }
+        );
+
+        var serializer = new CompasPbSerializer();
+        var result = serializer.Unpack<ToolPathData>(serializer.Pack(toolPath));
+
+        Assert.NotNull(result);
+        Assert.Equal("milling_01", result.Name);
+        Assert.Equal(1.0, result.ToolFrame.X);
+        Assert.Equal(10.0, Assert.Single(result.Segments).X);
+    }
+
+    [Fact]
+    public void Register_DomainTypeThatIsNotAMessage_RoundTripsThroughItsOwnFunctions()
+    {
+        // The Unity/Rhino case: a plain model type that knows nothing about protobuf, paired with
+        // a domain package's message. ToolFrameData is claimed by no other test, and registering a
+        // domain type also claims that message's deserializer.
+        Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
+        Registry.Register<TestToolFrame, ToolFrameData>(
+            frame => new ToolFrameData
+            {
+                X = frame.X,
+                Y = frame.Y,
+                Z = frame.Z,
+            },
+            message => new TestToolFrame(message.X, message.Y, message.Z)
+        );
+
+        var serializer = new CompasPbSerializer();
+        var restored = serializer.Unpack(serializer.Pack(new TestToolFrame(5.0, 6.0, 7.0)));
+
+        var frame = Assert.IsType<TestToolFrame>(restored);
+        Assert.Equal(5.0, frame.X);
+        Assert.Equal(6.0, frame.Y);
+        Assert.Equal(7.0, frame.Z);
+    }
+
+    [Fact]
+    public void GetJsonTypeRegistry_CoversDomainPackageMessages()
+    {
+        Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
+
+        var registry = Registry.GetJsonTypeRegistry();
+
+        Assert.NotNull(registry.Find("compas_pb.data.PointData"));
+        Assert.NotNull(registry.Find("test.domain.ToolPathData"));
+    }
+
+    /// <summary>
+    /// A plain domain type, with no protobuf awareness, standing in for a Unity or Rhino model
+    /// class that a downstream package maps onto a message.
+    /// </summary>
+    private sealed class TestToolFrame
+    {
+        public TestToolFrame(double x, double y, double z)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+        }
+
+        public double X { get; }
+
+        public double Y { get; }
+
+        public double Z { get; }
     }
 
     private class ExternalBase

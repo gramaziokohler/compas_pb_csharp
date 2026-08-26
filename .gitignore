@@ -1,6 +1,7 @@
 # IDE
 .vs
 .idea/
+.nvim/
 
 # macOS
 .DS_Store
@@ -78,3 +79,6 @@ wheels/
 
 # Unity package binaries are built by build_upm.py and published to the upm branch.
 upm/*/Runtime/
+
+# os
+.DS_Store

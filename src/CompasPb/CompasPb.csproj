@@ -8,6 +8,10 @@
         <RootNamespace>CompasPb</RootNamespace>
     </PropertyGroup>
 
+    <ItemGroup Label="Friend Assemblies">
+        <InternalsVisibleTo Include="CompasPb.Test" />
+    </ItemGroup>
+
     <PropertyGroup Label="Package Metadata">
         <PackageId>CompasPb</PackageId>
         <Title>COMPAS Protobuf for C#</Title>

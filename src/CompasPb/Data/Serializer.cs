@@ -5,7 +5,11 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
-public static class Serializer
+/// <summary>
+/// Encodes objects into the compas_pb wire format. Internal: callers go through
+/// <see cref="CompasPbSerializer"/>, which is the runtime's single entry point in.
+/// </summary>
+internal static class Serializer
 {
     public static readonly string CurrentVersion = PackageInfo.Version;
 
@@ -16,6 +20,31 @@ public static class Serializer
             throw new ArgumentNullException(nameof(data));
         }
         return new MessageData { Data = data, Version = CurrentVersion }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Encodes a packed <see cref="AnyData"/> as a protobuf-JSON string.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors upstream <c>pb_dump_json</c>, which calls <c>MessageToJson</c> with its defaults.
+    /// Those defaults omit fields at their default value, so this leaves
+    /// <c>FormatDefaultValues</c> off: the JSON a C# runtime writes stays comparable with the
+    /// JSON Python writes for the same object. Fields set through a <c>oneof</c> — which is how
+    /// every <see cref="AnyData"/> arm is encoded — are written even when they hold a default
+    /// value, so a zero or an empty string still survives the round trip.
+    /// </remarks>
+    public static string PackAsJson(AnyData data)
+    {
+        if (data is null)
+        {
+            throw new ArgumentNullException(nameof(data));
+        }
+
+        var message = new MessageData { Data = data, Version = CurrentVersion };
+        var formatter = new JsonFormatter(
+            JsonFormatter.Settings.Default.WithTypeRegistry(Registry.GetJsonTypeRegistry())
+        );
+        return formatter.Format(message);
     }
 
     public static AnyData PackAsAnyData(object? obj)

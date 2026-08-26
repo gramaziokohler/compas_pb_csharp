@@ -19,7 +19,7 @@
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.1"
   },
-  "documentationUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/ARCHITECTURE.md",
+  "documentationUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/ARCHITECTURE.md",
   "changelogUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/CHANGELOG.md",
   "licensesUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/LICENSE",
   "repository": {

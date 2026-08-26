@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using CompasPb;
 using CompasPb.Data;
 using Xunit;
 
@@ -49,5 +50,62 @@ public class InteropTest
         var csharpPayload = Serializer.PackAsBytes(Serializer.PackAsAnyData(input));
 
         Assert.Equal(pythonPayload, Convert.ToBase64String(csharpPayload));
+    }
+
+    [Fact]
+    // The JSON half of the contract's "tested both directions against what Python produced".
+    // The fixture comes straight out of upstream pb_dump_json, so it also pins the shape of the
+    // JSON we write: defaults omitted inside a message, but every oneof arm present.
+    public void PythonCompasPb12Json_DeserializesInCSharp()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "compas_pb_1_2_payload.json"
+        );
+        var json = File.ReadAllText(fixturePath);
+
+        var payload = Assert.IsType<Dictionary<string, object?>>(
+            new CompasPbSerializer().UnpackJson(json)
+        );
+
+        var frame = Assert.IsType<FrameData>(payload["frame"]);
+        Assert.Equal(1.0, frame.Point.X);
+        Assert.Equal(3.0, frame.Point.Z);
+        Assert.Equal(1.0, frame.Xaxis.X);
+        Assert.Equal(1.0, frame.Yaxis.Y);
+
+        // Python wrote each of these at its default value through a oneof arm; losing any of
+        // them would mean the two runtimes disagree about what an omitted field means.
+        Assert.Equal(0L, payload["count"]);
+        Assert.Equal(0.0, payload["ratio"]);
+        Assert.Equal("", payload["label"]);
+        Assert.Equal(false, payload["flag"]);
+
+        var items = Assert.IsType<List<object?>>(payload["items"]);
+        Assert.Equal(1L, items[0]);
+        Assert.Equal(2.0, items[1]);
+        Assert.Equal("x", items[2]);
+    }
+
+    [Fact]
+    public void CSharpJson_MatchesTheShapePythonWrites()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "compas_pb_1_2_payload.json"
+        );
+        var serializer = new CompasPbSerializer();
+
+        // Re-emitting what Python wrote has to land on the same JSON, modulo map ordering.
+        var reEmitted = serializer.PackAsJson(serializer.UnpackJson(File.ReadAllText(fixturePath)));
+
+        Assert.Contains("\"intValue\": \"0\"", reEmitted);
+        Assert.Contains("\"doubleValue\": 0", reEmitted);
+        Assert.Contains("\"value\": \"\"", reEmitted);
+        Assert.Contains("\"value\": false", reEmitted);
+        Assert.Contains("\"@type\": \"type.googleapis.com/compas_pb.data.FrameData\"", reEmitted);
+        Assert.Contains("\"version\": \"" + PackageInfo.Version + "\"", reEmitted);
     }
 }
