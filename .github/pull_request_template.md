@@ -36,7 +36,7 @@
 _Put an `x` in the boxes that apply. You can also fill these out after creating the PR. If you're unsure about any of them, don't hesitate to ask. We're here to help! This is simply a reminder of what we are going to look for before merging your code._
 
 - [ ] The pull request title is a Conventional Commit, and says what a reader of the release notes needs to know.
-- [ ] I ran `csharpier format .` (CI fails on any deviation).
+- [ ] I ran `dotnet csharpier format .` (CI fails on any deviation).
 - [ ] I ran all tests on my computer and it's all green (i.e. `dotnet test`), on both `net9.0` and `net48`.
 - [ ] I have added tests that prove my fix is effective or that my feature works.
 - [ ] I have added necessary documentation (if appropriate).

@@ -20,12 +20,22 @@ together when upgrading.
 
 ### Formatting
 
-CI runs `csharpier check .` and fails on any deviation, so format before pushing:
+CI runs `dotnet csharpier check .` and fails on any deviation, so format before pushing:
 
 ```bash
-dotnet tool install -g csharpier
-csharpier format .
+dotnet tool restore     # once per clone
+dotnet csharpier format .
 ```
+
+CSharpier is pinned in `.config/dotnet-tools.json` and run as a local tool, so everyone
+formats with the same version. Installing it globally instead means a new release can
+change the rules and fail `main` with no code change — 1.3 began formatting XML as well
+as C#, which is how `test/app.config` started failing the check. Bump the pin
+deliberately, in its own commit, and reformat in the same one.
+
+`csharpier check .` reports its result through the exit code as well as a message, so do
+not pipe it through `tail` or `grep` when verifying — you get the summary line and the
+exit status of the pipe, not of csharpier.
 
 ### Tests
 
