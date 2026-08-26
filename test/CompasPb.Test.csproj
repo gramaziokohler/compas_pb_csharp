@@ -5,6 +5,17 @@
         <ParallelizeTestCollections>false</ParallelizeTestCollections>
     </PropertyGroup>
 
+    <!-- .NET Framework does not unify assembly versions the way .NET Core does. Google.Protobuf's
+         net45 build binds System.Memory 4.0.5.0, while restore resolves System.Memory 4.5.3, whose
+         assembly version is 4.0.1.1; without redirects the load fails with a FileLoadException and
+         every test dies in discovery. GenerateBindingRedirectsOutputType is needed as well as
+         AutoGenerateBindingRedirects because this is a library, not an Exe, and only the pair
+         writes CompasPb.Test.dll.config. -->
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net48'" Label="Assembly Binding">
+        <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+        <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    </PropertyGroup>
+
     <ItemGroup Label="Project References">
         <ProjectReference Include="../src/CompasPb/CompasPb.csproj" />
     </ItemGroup>
