@@ -89,10 +89,19 @@ from `version.json` and the Git history, exactly as before — it no longer deci
 3. Merge it. That single push to `main` tags `vX.Y.Z`, creates the GitHub release, and
    runs everything that publishes.
 
-`CHANGELOG.md` still carries a hand-written `## [Unreleased]` section from before
-release-please. release-please inserts its generated entry without touching that block,
-so fold it into the first release pull request and delete it there; otherwise it sits
-above the generated history forever.
+### The changelog
+
+Do not hand-edit `CHANGELOG.md`. release-please generates it from the commit messages,
+so the commit message *is* the changelog entry — write it accordingly. A hand-written
+line duplicates whatever the generator produces from the same commit.
+
+One exception, for the first release only. `CHANGELOG.md` carries a hand-written
+`## [Unreleased]` section describing work whose commits predate Conventional Commits
+and which release-please therefore cannot see: the runtime registry, the assembly
+attribute, the NuGet and Unity packaging, the MIT license, and the 1.0/1.1 wire-format
+upgrades. release-please inserts its generated entry without touching that block, so
+merge those lines into the generated `1.0.0` entry in the first release pull request and
+delete the block there. After that the file is entirely generated.
 
 To force a specific version regardless of what the commits imply, put a
 `Release-As: X.Y.Z` footer in a commit body:

@@ -2,6 +2,26 @@
 <!-- Please start by describing your change in a few sentences. -->
 <!-- You can erase any parts of this template not applicable to your Pull Request. -->
 
+### Pull request title
+
+**The title of this pull request becomes the commit message on `main`, and
+release-please reads it to decide the next version and write the changelog.**
+It must be a [Conventional Commit](https://www.conventionalcommits.org/); the
+`pr-title` workflow rejects anything else.
+
+| Title prefix | Effect |
+| --- | --- |
+| `feat: …` | Minor bump, listed under Features |
+| `fix: …` | Patch bump, listed under Bug Fixes |
+| `feat!: …`, or a `BREAKING CHANGE:` footer | Major bump |
+| `build:` `chore:` `ci:` `docs:` `perf:` `refactor:` `revert:` `style:` `test:` | No release, left out of the changelog |
+
+Describe the change in the title as you want it to read in the release notes.
+Do **not** edit `CHANGELOG.md` — release-please generates it.
+
+If you merge without squashing, the individual commit messages are what
+release-please reads instead, and those are not checked. Write them the same way.
+
 ### What type of change is this?
 
 - [ ] Bug fix in a **backwards-compatible** manner.
@@ -13,7 +33,11 @@
 
 _Put an `x` in the boxes that apply. You can also fill these out after creating the PR. If you're unsure about any of them, don't hesitate to ask. We're here to help! This is simply a reminder of what we are going to look for before merging your code._
 
-- [ ] I added a line to the `CHANGELOG.md` file in the `Unreleased` section under the most fitting heading (e.g. `Added`, `Changed`, `Removed`).
-- [ ] I ran all tests on my computer and it's all green (i.e. `dotent test`).
+- [ ] The pull request title is a Conventional Commit, and says what a reader of the release notes needs to know.
+- [ ] I ran `csharpier format .` (CI fails on any deviation).
+- [ ] I ran all tests on my computer and it's all green (i.e. `dotnet test`), on both `net9.0` and `net48`.
 - [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] I have added necessary documentation (if appropriate)
+- [ ] I have added necessary documentation (if appropriate).
+- [ ] If this changes the wire format or the public API, I checked it against the
+      [runtime contract](https://compas.dev/compas_pb/latest/implementing-a-runtime/)
+      and the authoritative Python implementation.
