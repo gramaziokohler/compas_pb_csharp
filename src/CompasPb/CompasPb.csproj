@@ -25,11 +25,6 @@
         <PackageReference Include="Newtonsoft.Json" />
     </ItemGroup>
 
-    <!-- Additional packages for net48 -->
-    <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-        <PackageReference Include="System.Net.Http" />
-    </ItemGroup>
-
     <ItemGroup Label="Resources">
         <EmbeddedResource Include="..\..\resources\COMPAS_PB_VERSION.json">
             <LogicalName>COMPAS_PB_VERSION.json</LogicalName>

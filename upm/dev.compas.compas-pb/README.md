@@ -87,9 +87,6 @@ public class CompasPbExample : MonoBehaviour
 }
 ```
 
-`CompasPbHttpClient` can exchange the same payloads with a running `compas_pb`
-Python server over HTTP.
-
 Binary and JSON packing, downstream type registration through `Registry`, and
 COMPAS JSON-dump fallbacks all work exactly as they do outside Unity.
 `CompasPbSerializer` and `ICompasPbSerializer` live in the `CompasPb` namespace;

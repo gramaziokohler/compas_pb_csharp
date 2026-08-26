@@ -291,28 +291,6 @@ has no C# registration, deserialization deliberately returns its JSON-dump dicti
 the payload remains inspectable. The older `ICompasFallback` interface remains supported
 for existing model classes.
 
-### HTTP transport
-
-Use `CompasPbHttpClient` to send and receive data from a running `compas_pb` Python server:
-
-```csharp
-using CompasPb;
-using CompasPb.Data;
-using CompasPb.Route;
-
-var serializer = new CompasPbSerializer();
-var client     = new CompasPbHttpClient("http://localhost:5000", serializer);
-
-// Send — packs and POSTs to /receiver
-await client.SendAsync(frame);
-
-// Receive typed — GETs from /sender and unpacks
-FrameData? result = await client.ReceiveAsync<FrameData>();
-
-// Receive dynamic — when the type is unknown
-object? dynamic = await client.ReceiveAsync();
-```
-
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — how this runtime implements the `compas_pb` contract.
