@@ -339,4 +339,22 @@ public class SerializerTest
 
         _ = Assert.Throws<InvalidOperationException>(() => _serializer.UnpackJson(json));
     }
+
+    [Fact]
+    public void PackAsAnyData_FillsAMessageFieldWithoutAnEnvelope()
+    {
+        // MeshData.EdgeKeys is a repeated AnyData, so a domain package mapping onto it needs the
+        // value level of the codec, not the envelope level. This is the C# equivalent of what
+        // upstream conversions.py does with _serializer_any / _deserialize_any.
+        var mesh = new MeshData();
+        mesh.EdgeKeys.Add(_serializer.PackAsAnyData(new List<object> { 0, 1 }));
+        mesh.EdgeKeys.Add(_serializer.PackAsAnyData("boundary"));
+
+        var restored = _serializer.Unpack<MeshData>(_serializer.Pack(mesh));
+
+        Assert.NotNull(restored);
+        var key = Assert.IsType<List<object?>>(_serializer.UnpackAnyData(restored.EdgeKeys[0]));
+        Assert.Equal(new object?[] { 0L, 1L }, key);
+        Assert.Equal("boundary", _serializer.UnpackAnyData(restored.EdgeKeys[1]));
+    }
 }

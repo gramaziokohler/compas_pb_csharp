@@ -148,6 +148,28 @@ stripping linker, preserve the registrar type so its method is kept.
 
 ---
 
+## Messages with `AnyData` fields
+
+A `.proto` message can hold arbitrary compas_pb values through `AnyData` — the
+built-in `MeshData.edge_keys`, `GraphData.node_keys` and
+`AttributeColumn.values` all do. Fill and read those with the value-level pair
+rather than reimplementing the dispatch:
+
+```csharp
+var mesh = new MeshData();
+foreach (var edge in edges)
+{
+    mesh.EdgeKeys.Add(serializer.PackAsAnyData(edge.Key));
+}
+
+var key = serializer.UnpackAnyData(mesh.EdgeKeys[0]);
+```
+
+`Pack` / `Unpack` stay the entry points for a whole payload; these two are for a
+single field inside a message you are already building.
+
+---
+
 ## COMPAS types with no protobuf schema
 
 A COMPAS type that has no `.proto` message still travels, through the fallback

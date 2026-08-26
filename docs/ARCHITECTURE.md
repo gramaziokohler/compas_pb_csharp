@@ -31,6 +31,19 @@ CompasPbSerializer.UnpackJson(string)  → object?
 CompasPbSerializer.UnpackJson<T>(string) → T?
 ```
 
+One level below the envelope, for a domain package whose own message has
+`AnyData` fields — compas_pb's built-in schema already does, in
+`MeshData.edge_keys`, `GraphData.node_keys` and `AttributeColumn.values`:
+
+```
+CompasPbSerializer.PackAsAnyData(object)   → AnyData
+CompasPbSerializer.UnpackAnyData(AnyData)  → object?
+```
+
+Without these a domain package would have to reimplement the recursive dispatch
+to fill one field. Upstream exposes the same level as `any_to_pb` / `any_from_pb`,
+and its own `conversions.py` uses it for exactly these fields.
+
 `CompasPb.Route.CompasPbHttpClient` wraps the binary pair for talking to a
 running `compas_pb` Python server over HTTP; it is transport, not part of the
 runtime contract.

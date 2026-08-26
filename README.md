@@ -133,6 +133,10 @@ formats. It lives in the `CompasPb` namespace; the generated message types it pa
 All protobuf message types in the assembly are registered automatically at startup, so no
 manual type registration is needed for the built-in COMPAS geometry.
 
+`PackAsAnyData` / `UnpackAnyData` sit one level below `Pack` / `Unpack`, for filling an
+`AnyData` field inside a message you are building yourself — see
+[the domain package guide](docs/DOMAIN_PACKAGE.md).
+
 ### Single object
 
 ```csharp

@@ -32,4 +32,10 @@ public class CompasPbSerializer : ICompasPbSerializer
     public T? UnpackJson<T>(string json)
         where T : class, IMessage<T>, new() =>
         Deserializer.Unpack<T>(Deserializer.UnpackJson(json));
+
+    /// <inheritdoc />
+    public AnyData PackAsAnyData(object? data) => Serializer.PackAsAnyData(data);
+
+    /// <inheritdoc />
+    public object? UnpackAnyData(AnyData data) => Deserializer.UnpackAnyData(data);
 }

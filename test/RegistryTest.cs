@@ -265,6 +265,40 @@ public class RegistryTest
         public double Z { get; }
     }
 
+    [Fact]
+    public void UnpackAs_ReturnsTheRawMessageEvenWhenADomainConversionIsRegistered()
+    {
+        // What a consumer that routes on protobuf type needs: Registry.GetType plus UnpackAs give
+        // back the message itself, not the domain object Unpack would build from it. CompasXRSharp's
+        // Unity converter dispatches on the message type this way.
+        Registry.Register<TestToolPathName, ToolPathData>(
+            value => new ToolPathData { Name = value.Name },
+            message => new TestToolPathName(message.Name)
+        );
+
+        var any = Any.Pack(new ToolPathData { Name = "milling_02" });
+        var messageType = Registry.GetType(any.TypeUrl);
+
+        Assert.Equal(typeof(ToolPathData), messageType);
+        var raw = Assert.IsType<ToolPathData>(Registry.UnpackAs(any, messageType!));
+        Assert.Equal("milling_02", raw.Name);
+
+        // The envelope-level entry point still yields the domain object.
+        var serializer = new CompasPbSerializer();
+        var domain = serializer.Unpack(serializer.Pack(new TestToolPathName("milling_02")));
+        Assert.IsType<TestToolPathName>(domain);
+    }
+
+    private sealed class TestToolPathName
+    {
+        public TestToolPathName(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; }
+    }
+
     private class ExternalBase
     {
         public ExternalBase(string text)
