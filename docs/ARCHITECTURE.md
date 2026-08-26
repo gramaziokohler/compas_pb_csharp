@@ -136,6 +136,15 @@ it up as a full protobuf name. There is no simple-name fallback: matching
 message of the same name, and the contract is explicit that type URLs match on
 the full name.
 
+`Registry.UnpackAs(Any, Type)` is the companion: it returns the parsed **message**
+rather than whatever domain object a registered deserializer would build. A caller
+that dispatches on the protobuf type — a Unity or Rhino layer choosing its own
+wrapper per message type — needs the message, not the conversion. `Unpack` remains
+the path that applies registered conversions.
+
+`Registry.GetRegisteredTypes()` enumerates every message the registry knows,
+after scanning loaded assemblies.
+
 ### The `[CompasPbRegistrations]` attribute
 
 Requiring the host application to call each package's registration code means
@@ -189,6 +198,29 @@ an empty string, or a `false` still survives the round trip.
 
 ---
 
+## Wire version compatibility
+
+Every payload carries the `compas_pb` version in its `MessageData` envelope, and
+every read checks it. compas_pb reuses protobuf field numbers across format
+revisions, so data written by an incompatible version can *silently misparse*
+rather than fail cleanly — which is why a missing or mismatched version is a hard
+error rather than a warning.
+
+The comparison is on a compatibility key, not the full version, matching Python's
+`_wire_compat_key`:
+
+| Version | Key | Compatible with |
+| --- | --- | --- |
+| `0.5.x` | `0.5` | other `0.5.x` only — under 0.x every minor release may change the schema |
+| `1.0`, `1.2` | `1` | each other — from 1.0 on, minor releases stay backwards-compatible |
+| `2.0` | `2` | not `1.x` |
+
+A mismatch raises `InvalidOperationException`. This runtime is built against the
+version pinned in `resources/COMPAS_PB_VERSION.json`, embedded as a resource and
+read back through `PackageInfo.Version`.
+
+---
+
 ## Target frameworks
 
 | Target | Typical consumers |
@@ -221,4 +253,5 @@ Status of `compas_pb_csharp` against the
 - [x] One entry point each way, with no type checking left to callers
 - [x] Bindings come from a pinned release, not copied into the repo
 - [x] Shared `compas_pb` types come from the runtime package
-- [x] Tested both directions against bytes Python produced
+- [x] Tested both directions against bytes Python produced, and the same for JSON
+      against `pb_dump_json` output (`test/Fixtures`)

@@ -13,7 +13,9 @@ and no DLLs have to be copied into `Assets/` by hand.
 ## Requirements
 
 - Unity 2021.3 or newer
-- API Compatibility Level `.NET Standard 2.1` (the default)
+- Either API Compatibility Level — the package ships a `netstandard2.0`
+  assembly, which loads under both `.NET Standard 2.1` (the default) and
+  `.NET Framework`
 
 `Newtonsoft.Json` is required and is pulled in automatically through the
 [`com.unity.nuget.newtonsoft-json`](https://docs.unity3d.com/Packages/com.unity.nuget.newtonsoft-json@3.2/manual/index.html)
@@ -49,14 +51,20 @@ Or add the scoped registry manually in `Packages/manifest.json`:
 
 ### Git URL
 
-Unity can also install the package straight from this repository's subfolder:
+Unity can also install the package straight from the repository. Use the `upm`
+branch tags — the package sits at the root of that branch, with the compiled
+assemblies committed:
 
 ```
-https://github.com/gramaziokohler/compas_pb_csharp.git?path=/upm/dev.compas.compas-pb#v1.0.0
+https://github.com/gramaziokohler/compas_pb_csharp.git#upm/v1.0.0
 ```
 
 Add it through **Window → Package Manager → + → Add package from git URL**.
-Pin the trailing `#v<version>` tag; without it Unity tracks the default branch.
+
+Pin the `#upm/v<version>` tag. Without it Unity tracks the default branch, and
+`main` does not carry the built assemblies — `Runtime/` is generated at release
+time, so a package installed from `main` or from a `v<version>` release tag has
+no `CompasPb.dll` in it.
 
 ## Usage
 
@@ -106,6 +114,18 @@ your project:
 <linker>
   <assembly fullname="CompasPb" preserve="all" />
   <assembly fullname="Google.Protobuf" preserve="all" />
+</linker>
+```
+
+If your own assembly declares `[assembly: CompasPbRegistrations(typeof(...))]`,
+preserve the registrar type as well — it is only ever reached by reflection, so
+the linker has no reason to keep it:
+
+```xml
+<linker>
+  <assembly fullname="MyGame">
+    <type fullname="MyGame.Data.MyConversions" preserve="all" />
+  </assembly>
 </linker>
 ```
 

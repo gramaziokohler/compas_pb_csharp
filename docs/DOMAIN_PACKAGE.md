@@ -206,3 +206,5 @@ throwing, so an unknown payload stays inspectable and forwardable.
 | No schema | `Registry.RegisterFallback<TObject>(dtype, to, from)` | Registrar or startup |
 | Discovery | `[assembly: CompasPbRegistrations(typeof(...))]` | Your package |
 | Use | `serializer.Pack(obj)` / `serializer.Unpack<T>(bytes)` | Anywhere |
+| JSON | `serializer.PackAsJson(obj)` / `serializer.UnpackJson<T>(json)` | Anywhere |
+| `AnyData` fields | `serializer.PackAsAnyData(v)` / `serializer.UnpackAnyData(a)` | Inside your `ToProto` / `FromProto` |

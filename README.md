@@ -45,8 +45,8 @@ Restore the project after editing the project file directly:
 dotnet restore
 ```
 
-NuGet restores `Google.Protobuf`, `Newtonsoft.Json`, and any framework-specific
-dependencies transitively.
+NuGet restores the two runtime dependencies, `Google.Protobuf` and `Newtonsoft.Json`,
+transitively.
 
 ### Install in Unity
 
@@ -76,7 +76,7 @@ Or add the scoped registry to `Packages/manifest.json`:
 
 The Unity package requires Unity 2021.3 or newer and pulls in `Newtonsoft.Json`
 through the `com.unity.nuget.newtonsoft-json` dependency. See the
-[package README](upm/dev.compas.compas-pb/README.md) for details.
+[package README](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/upm/dev.compas.compas-pb/README.md) for details.
 
 ### Supported target frameworks
 
@@ -135,7 +135,7 @@ manual type registration is needed for the built-in COMPAS geometry.
 
 `PackAsAnyData` / `UnpackAnyData` sit one level below `Pack` / `Unpack`, for filling an
 `AnyData` field inside a message you are building yourself — see
-[the domain package guide](docs/DOMAIN_PACKAGE.md).
+[the domain package guide](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/DOMAIN_PACKAGE.md).
 
 ### Single object
 
@@ -224,6 +224,9 @@ model classes. Register each mapping once during application startup; the protob
 identified by its descriptor's full name, so identically named messages in different
 packages cannot collide.
 
+`Registry`, `CompasPbRegistrations` and `ICompasFallback` are in `CompasPb.Data`,
+alongside the message types — only the serializer moved to `CompasPb`.
+
 ```csharp
 Registry.Register<Widget, WidgetData>(
     widget => new WidgetData { Name = widget.Name },
@@ -293,10 +296,10 @@ for existing model classes.
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — how this runtime implements the `compas_pb` contract.
-- [Using CompasPb from a domain package](docs/DOMAIN_PACKAGE.md) — shipping your own `.proto`
+- [Architecture](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/ARCHITECTURE.md) — how this runtime implements the `compas_pb` contract.
+- [Using CompasPb from a domain package](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/DOMAIN_PACKAGE.md) — shipping your own `.proto`
   types and registering them.
-- [Development](docs/DEVELOPMENT.md) — building, testing, and releasing this repository.
+- [Development](https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/DEVELOPMENT.md) — building, testing, and releasing this repository.
 
 `compas_pb` is a cross-language format; Python is the authoritative implementation. For the
 format itself, the runtime contract, and the wider ecosystem, see the upstream
