@@ -8,28 +8,20 @@ All notable changes to this project will be documented in this file.
 
 - Upgrade the bundled `compas_pb` schema and generated C# bindings from 1.0 to 1.1
 - Serialize integers, floating-point values, dictionaries, and lists through their dedicated `AnyData` fields
+- Make `Serializer` and `Deserializer` `internal`; consumers must use the public `ICompasPbSerializer` API
+- Move `ICompasPbSerializer` and `CompasPbSerializer` from `CompasPb.Data` to the `CompasPb` namespace
+- Add typed `SendAsync` / `ReceiveAsync<T>` to HTTP client
 
 ### Features
 
+- Add `RegisterSerializer<T>` / `RegisterDeserializer` converter-function registry for domain types that are not `IMessage` (e.g. Unity `Vector3` or Rhino `Point3d`)
+- Add public `Registry.RegisterAssembly(Assembly)` for third-party type registration
+- Add `[CompasPbRegistration]` assembly-level marker attribute for future auto-discovery
+- Add `ICompasPbSerializer` interface and `CompasPbSerializer` implementation with typed `Unpack<T>` and DI support
 - Add byte-array serialization using the compas_pb base64 representation
 - Add `ICompasFallback` support for interoperable fallback objects such as `compas_model` models
 - Preserve deserialization compatibility with legacy dictionaries and lists packed inside protobuf `Any` values
-
-### Tests
-
-- Add compas_pb version compatibility coverage
-- Add a Python-generated `compas_model` fixture to verify Python-to-C# wire interoperability
-
-### Development
-
-- Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
-
-## [0.1.0] - 2026-08-09
-
-### Features
-
-- Add `ICompasPbSerializer` interface and `CompasPbSerializer` implementation with typed `Unpack<T>` and DI support
-- Add typed `SendAsync` / `ReceiveAsync<T>` to HTTP client
+- Add JSON serialization via `PackAsJson` and `UnpackJson` / `UnpackJson<T>` on `ICompasPbSerializer`, with input validation that rejects null, empty, or whitespace strings
 
 ### Refactor
 
@@ -39,13 +31,29 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
+- Fix type URL matching to resolve by full protobuf name after last `/` instead of simple name splitting on `.`
 - Embed `COMPAS_PB_VERSION.json` as assembly resource — fixes version returning `unknown` in Grasshopper/Unity
+
+### Tests
+
+- Add test-only `ToolPathData` proto to simulate third-party domain package registration
+- Add converter-function registry tests with `RegisterSerializer` / `RegisterDeserializer` round-trips
+- Add compas_pb version compatibility coverage
+- Add a Python-generated `compas_model` fixture to verify Python-to-C# wire interoperability
+
+### Documentation
+
+- Rewrite ARCHITECTURE.md as ecosystem runtime documentation with converter-function registry and runtime contract checklist
+- Update README with all three usage patterns and HTTP transport example
+- Update README and ARCHITECTURE with JSON serialization usage and design notes
 
 ### CI/CD
 
 - Add csharpier format check and `dotnet test` to build and release workflows
 
-### Documentation
+### Development
 
-- Update README with all three usage patterns and HTTP transport example
-- Update ARCHITECTURE.md to reflect new design
+- Add `Grpc.Tools` for test-only proto compilation
+- Remove dead `RegisterType<T>` method from Registry
+- Remove the pinned .NET SDK so supported installed SDKs can be selected through roll-forward behavior
+- Remove unused `Data/Helper.cs`

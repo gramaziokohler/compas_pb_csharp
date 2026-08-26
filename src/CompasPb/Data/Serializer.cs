@@ -5,7 +5,7 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
-public static class Serializer
+internal static class Serializer
 {
     public static readonly string CurrentVersion = PackageInfo.Version;
 
@@ -18,11 +18,33 @@ public static class Serializer
         return new MessageData { Data = data, Version = CurrentVersion }.ToByteArray();
     }
 
+    public static string PackAsJson(AnyData data)
+    {
+        if (data is null)
+        {
+            throw new ArgumentNullException(nameof(data));
+        }
+        var messageData = new MessageData { Data = data, Version = CurrentVersion };
+        var formatter = new JsonFormatter(
+            new JsonFormatter.Settings(false)
+                .WithFormatDefaultValues(true)
+                .WithTypeRegistry(Registry.GetJsonTypeRegistry())
+        );
+        return formatter.Format(messageData);
+    }
+
     public static AnyData PackAsAnyData(object? obj)
     {
         if (obj is null)
         {
             return new AnyData { Value = Value.ForNull() };
+        }
+
+        // Check for a custom serializer registered by a domain package
+        var customSerialized = Registry.TrySerialize(obj);
+        if (customSerialized != null)
+        {
+            return customSerialized;
         }
 
         return obj switch

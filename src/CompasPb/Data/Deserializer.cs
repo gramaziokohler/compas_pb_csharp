@@ -5,7 +5,7 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
-public static class Deserializer
+internal static class Deserializer
 {
     public static AnyData UnpackBytes(byte[] data)
     {
@@ -16,6 +16,18 @@ public static class Deserializer
         var message = MessageData.Parser.ParseFrom(data);
         ValidateVersion(message.Version);
         return message.Data;
+    }
+
+    public static AnyData UnpackJson(string jsonString)
+    {
+        if (string.IsNullOrWhiteSpace(jsonString))
+        {
+            throw new ArgumentException("JSON string cannot be null or empty.", nameof(jsonString));
+        }
+        var parser = new JsonParser(new JsonParser.Settings(20, Registry.GetJsonTypeRegistry()));
+        MessageData messageData = parser.Parse<MessageData>(jsonString);
+        ValidateVersion(messageData.Version);
+        return messageData.Data;
     }
 
     public static object? UnpackAnyData(AnyData data, System.Type? dataType = null)
@@ -69,6 +81,13 @@ public static class Deserializer
         if (message.TryUnpack<DictData>(out var dictionary))
         {
             return UnpackDict(dictionary);
+        }
+
+        // Check for a custom deserializer registered by a domain package
+        var customDeserialized = Registry.TryDeserialize(message);
+        if (customDeserialized != null)
+        {
+            return customDeserialized;
         }
 
         dataType ??= Registry.GetType(message.TypeUrl);
