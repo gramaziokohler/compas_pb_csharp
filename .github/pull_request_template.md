@@ -2,25 +2,27 @@
 <!-- Please start by describing your change in a few sentences. -->
 <!-- You can erase any parts of this template not applicable to your Pull Request. -->
 
-### Pull request title
+<!--
+  ABOUT THE TITLE OF THIS PULL REQUEST — this note is a comment and will not appear
+  in the submitted description, so there is nothing to delete.
 
-**The title of this pull request becomes the commit message on `main`, and
-release-please reads it to decide the next version and write the changelog.**
-It must be a [Conventional Commit](https://www.conventionalcommits.org/); the
-`pr-title` workflow rejects anything else.
+  The title becomes the commit message on `main`, and release-please reads it to decide
+  the next version and write the changelog. It must be a Conventional Commit
+  (https://www.conventionalcommits.org/); the `pr-title` workflow rejects anything else.
 
-| Title prefix | Effect |
-| --- | --- |
-| `feat: …` | Minor bump, listed under Features |
-| `fix: …` | Patch bump, listed under Bug Fixes |
-| `feat!: …`, or a `BREAKING CHANGE:` footer | Major bump |
-| `build:` `chore:` `ci:` `docs:` `perf:` `refactor:` `revert:` `style:` `test:` | No release, left out of the changelog |
+    feat: …                                   minor bump, listed under Features
+    fix: …                                    patch bump, listed under Bug Fixes
+    feat!: … or a BREAKING CHANGE: footer     major bump
+    build: chore: ci: docs: perf: refactor:
+    revert: style: test:                      no release, left out of the changelog
 
-Describe the change in the title as you want it to read in the release notes.
-Do **not** edit `CHANGELOG.md` — release-please generates it.
+  Describe the change in the title as you want it to read in the release notes.
 
-If you merge without squashing, the individual commit messages are what
-release-please reads instead, and those are not checked. Write them the same way.
+  Do NOT edit CHANGELOG.md — release-please generates it from commit messages.
+
+  If this pull request is merged WITHOUT squashing, the individual commit messages are
+  what release-please reads instead, and those are not checked. Write them the same way.
+-->
 
 ### What type of change is this?
 
