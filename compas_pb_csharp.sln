@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "example", "example", "{1B96
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompasPb.UserCase", "example\UserCase\CompasPb.UserCase.csproj", "{51789908-9458-43CE-B46F-D054826E5A48}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompasPb.Test.LatePlugin", "test\LatePlugin\CompasPb.Test.LatePlugin.csproj", "{C0442DC4-2A3F-410A-90C1-12522BBD66EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,18 @@ Global
 		{51789908-9458-43CE-B46F-D054826E5A48}.Release|x64.Build.0 = Release|Any CPU
 		{51789908-9458-43CE-B46F-D054826E5A48}.Release|x86.ActiveCfg = Release|Any CPU
 		{51789908-9458-43CE-B46F-D054826E5A48}.Release|x86.Build.0 = Release|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Debug|x64.Build.0 = Debug|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Debug|x86.Build.0 = Debug|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Release|x64.ActiveCfg = Release|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Release|x64.Build.0 = Release|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Release|x86.ActiveCfg = Release|Any CPU
+		{C0442DC4-2A3F-410A-90C1-12522BBD66EC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

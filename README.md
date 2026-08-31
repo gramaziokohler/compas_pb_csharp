@@ -264,8 +264,10 @@ public static class WidgetConversions
 ```
 
 CompasPb invokes each declared registrar at most once, and reads the attribute without
-enumerating your types, so discovery stays cheap. Assemblies loaded later are picked up by
-calling `Registry.DiscoverRegistrations()` again.
+enumerating your types, so discovery stays cheap. A referenced assembly is loaded by the runtime
+only when the process first uses one of its types, so yours may well not be loaded when CompasPb
+first sweeps — CompasPb watches for later loads and runs your registrar when your assembly
+arrives. `Registry.DiscoverRegistrations()` forces a sweep by hand if you ever need one.
 
 The registrations themselves stay explicit `Register<,>` calls, so the generic instantiations
 remain statically visible and survive IL2CPP or trimming; only the call into `Register` is

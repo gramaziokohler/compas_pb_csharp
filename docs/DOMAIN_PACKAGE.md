@@ -138,8 +138,15 @@ public static class AntikytheraConversions
 ```
 
 Each declared registrar runs at most once. Reading the attribute does not
-enumerate your types, so discovery stays cheap; assemblies loaded later are
-picked up by calling `Registry.DiscoverRegistrations()` again.
+enumerate your types, so discovery stays cheap.
+
+Your package does not have to be loaded when CompasPb starts up. The runtime
+loads a referenced assembly lazily — on first use of one of its types, not
+because a project referenced it — so a host that has not touched your package
+yet is a normal state, not an error. CompasPb watches for assemblies arriving
+and runs your registrar when yours does.
+`Registry.DiscoverRegistrations()` forces a sweep by hand if you ever need
+one.
 
 Keep the registrations themselves as explicit `Register<,>` calls. That keeps
 the generic instantiations statically visible, so they survive IL2CPP and

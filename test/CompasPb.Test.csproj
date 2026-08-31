@@ -16,8 +16,22 @@
         <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     </PropertyGroup>
 
+    <!-- LatePlugin is its own project. It sits under test/ because it is test material, which
+         means the SDK's default globs would otherwise compile its sources into this assembly. -->
+    <ItemGroup Label="Fixture Project Sources">
+        <Compile Remove="LatePlugin/**" />
+        <EmbeddedResource Remove="LatePlugin/**" />
+        <None Remove="LatePlugin/**" />
+    </ItemGroup>
+
     <ItemGroup Label="Project References">
         <ProjectReference Include="../src/CompasPb/CompasPb.csproj" />
+
+        <!-- Built and copied next to the tests. No test code names a type from it, so the
+             runtime never loads it on its own — which is exactly the situation
+             LateAssemblyDiscoveryTest reproduces, and it asserts as much before loading it by
+             path. -->
+        <ProjectReference Include="LatePlugin/CompasPb.Test.LatePlugin.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Test Dependencies">

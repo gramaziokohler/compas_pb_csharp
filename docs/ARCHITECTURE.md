@@ -170,6 +170,18 @@ Reading an assembly-level attribute does not enumerate types, which keeps the
 startup pass cheap; the expensive `IMessage` scan stays lazy in
 `DiscoverLoadedAssemblies`.
 
+That startup sweep alone is not enough. `AppDomain.GetAssemblies()` reports only
+the assemblies the process has already loaded, and the runtime loads a
+referenced assembly lazily — on first use of one of its types, at the point the
+referencing method is jitted. A domain package the host has not touched yet is
+therefore invisible to the sweep. So the registry also subscribes to
+`AppDomain.AssemblyLoad` and reads the attribute off each assembly as it
+arrives, and a pack lookup that finds no conversion re-runs the registrar sweep
+before giving up — gated so it costs at most one sweep per type per
+registration, since `TryPack` runs for every value in a payload. The
+subscription is made last, after the startup sweep, so a load on another thread
+cannot run a handler that blocks on the initializer while the sweep holds it.
+
 The registrations themselves stay explicit `Register<,>` calls, so the generic
 instantiations remain statically visible and survive IL2CPP or trimming; only
 the call *into* `Register` is discovered reflectively. Under a stripping linker,
