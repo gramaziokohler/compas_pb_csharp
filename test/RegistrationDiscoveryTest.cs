@@ -7,6 +7,10 @@ using Xunit;
 // Declared on the test assembly itself, which is what exercises the discovery path: nothing
 // below ever calls DiscoveredConversions.Register, so a passing test proves CompasPb invoked it.
 [assembly: CompasPbRegistrations(typeof(DiscoveredConversions))]
+// A second registrar that always fails, standing in for a broken plugin in the host's
+// AppDomain. Discovery has to survive it: everything below depends on the registrar above
+// running, and metadata order decides which of the two the sweep reaches first.
+[assembly: CompasPbRegistrations(typeof(FailingConversions))]
 
 /// <summary>
 /// A domain type with no protobuf awareness, converted through registered functions.
@@ -37,6 +41,13 @@ public static class DiscoveredConversions
     }
 }
 
+public static class FailingConversions
+{
+    public const string FailureMessage = "This registrar always fails.";
+
+    public static void Register() => throw new InvalidOperationException(FailureMessage);
+}
+
 public class RegistrationDiscoveryTest
 {
     [Fact]
@@ -59,6 +70,28 @@ public class RegistrationDiscoveryTest
         Registry.DiscoverLoadedAssemblies();
 
         Assert.Equal(1, DiscoveredConversions.Invocations);
+    }
+
+    [Fact]
+    public void FailingRegistrar_DoesNotStopTheOtherRegistrars()
+    {
+        Registry.DiscoverRegistrations();
+
+        // The sweep reached DiscoveredConversions whether or not it hit the failing registrar
+        // first, and nothing threw on the way there.
+        Assert.Equal(1, DiscoveredConversions.Invocations);
+    }
+
+    [Fact]
+    public void FailingRegistrar_IsRecordedAsADiscoveryFailure()
+    {
+        Registry.DiscoverRegistrations();
+
+        var failure = Assert.Single(
+            Registry.DiscoveryFailures,
+            exception => exception.Message.Contains(nameof(FailingConversions))
+        );
+        Assert.Equal(FailingConversions.FailureMessage, failure.InnerException?.Message);
     }
 
     [Fact]

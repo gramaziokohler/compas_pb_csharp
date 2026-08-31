@@ -80,9 +80,25 @@ public static class Registry
 
     private static readonly ConcurrentDictionary<System.Type, byte> InvokedRegistrars = new();
 
+    private static readonly ConcurrentQueue<Exception> DiscoveryFailureLog = new();
+
     // Rebuilt lazily whenever a protobuf type is registered. protobuf-json needs a descriptor
     // for every message that can appear inside an Any, which is what the registry already holds.
     private static TypeRegistry? JsonTypeRegistry;
+
+    /// <summary>
+    /// The failures swallowed while sweeping loaded assemblies for registrations.
+    /// </summary>
+    /// <remarks>
+    /// A sweep runs over assemblies the caller does not own, so it never lets one of them throw:
+    /// a plugin with a broken registrar would otherwise stop every assembly after it from
+    /// registering, and the first sweep runs from this type's initializer, where an escaping
+    /// exception would poison the registry for the rest of the process. The failures land here
+    /// instead. Each registrar is claimed before it runs, so a failing one is never retried and
+    /// this is the only record of it. <see cref="DiscoverRegistrations(Assembly)"/> still throws:
+    /// there the caller named the assembly, so the failure is theirs to handle.
+    /// </remarks>
+    public static IReadOnlyList<Exception> DiscoveryFailures => DiscoveryFailureLog.ToArray();
 
     static Registry()
     {
@@ -184,29 +200,44 @@ public static class Registry
 
         foreach (var type in GetLoadableTypes(assembly))
         {
-            if (
-                type.IsAbstract
-                || !type.IsClass
-                || !typeof(IMessage).IsAssignableFrom(type)
-                || type.GetConstructor(System.Type.EmptyTypes) is null
-            )
+            try
             {
-                continue;
+                RegisterMessageType(type);
             }
-
-            if (Activator.CreateInstance(type) is not IMessage prototype)
+            catch (Exception exception)
             {
-                continue;
+                // The assembly is already marked scanned, so it is never revisited: a message
+                // type whose initializer or descriptor blows up costs us that one type rather
+                // than every type declared after it.
+                RecordDiscoveryFailure(exception);
             }
-
-            RegisterMessage(
-                prototype.Descriptor,
-                type,
-                value => prototype.Descriptor.Parser.ParseFrom(value),
-                message => message,
-                overwriteDeserializer: false
-            );
         }
+    }
+
+    private static void RegisterMessageType(System.Type type)
+    {
+        if (
+            type.IsAbstract
+            || !type.IsClass
+            || !typeof(IMessage).IsAssignableFrom(type)
+            || type.GetConstructor(System.Type.EmptyTypes) is null
+        )
+        {
+            return;
+        }
+
+        if (Activator.CreateInstance(type) is not IMessage prototype)
+        {
+            return;
+        }
+
+        RegisterMessage(
+            prototype.Descriptor,
+            type,
+            value => prototype.Descriptor.Parser.ParseFrom(value),
+            message => message,
+            overwriteDeserializer: false
+        );
     }
 
     /// <summary>
@@ -217,7 +248,14 @@ public static class Registry
     {
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
-            RegisterAssembly(assembly);
+            try
+            {
+                RegisterAssembly(assembly);
+            }
+            catch (Exception exception)
+            {
+                RecordDiscoveryFailure(exception);
+            }
         }
 
         DiscoverRegistrations();
@@ -228,11 +266,25 @@ public static class Registry
     /// loaded assembly. Each registrar runs at most once, so this is safe to call again after
     /// more assemblies have loaded.
     /// </summary>
+    /// <remarks>
+    /// A registrar that throws does not stop the ones after it, in its own assembly or in any
+    /// other; its failure is recorded in <see cref="DiscoveryFailures"/> instead.
+    /// </remarks>
     public static void DiscoverRegistrations()
     {
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
-            DiscoverRegistrations(assembly);
+            foreach (var attribute in GetRegistrationAttributes(assembly))
+            {
+                try
+                {
+                    InvokeRegistrar(assembly, attribute);
+                }
+                catch (Exception exception)
+                {
+                    RecordDiscoveryFailure(exception);
+                }
+            }
         }
     }
 
@@ -240,6 +292,10 @@ public static class Registry
     /// Invokes the registrars declared by <see cref="CompasPbRegistrationsAttribute"/> on one
     /// assembly. Each registrar runs at most once.
     /// </summary>
+    /// <remarks>
+    /// Unlike the sweep over every loaded assembly, this throws when a registrar fails: the
+    /// caller picked the assembly, so the failure is about code they meant to load.
+    /// </remarks>
     public static void DiscoverRegistrations(Assembly assembly)
     {
         if (assembly is null)
@@ -563,6 +619,11 @@ public static class Registry
         }
 
         return null;
+    }
+
+    private static void RecordDiscoveryFailure(Exception exception)
+    {
+        DiscoveryFailureLog.Enqueue(exception);
     }
 
     private static IEnumerable<System.Type> GetLoadableTypes(Assembly assembly)
