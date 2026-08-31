@@ -1,0 +1,30 @@
+{
+  "name": "dev.compas.compas-pb",
+  "version": "1.0.0",
+  "displayName": "COMPAS Protobuf",
+  "description": "Serialize and deserialize COMPAS Data types with Protocol Buffers. Provides the compas_pb 1.2 wire format bindings and runtime, so Unity projects can exchange geometry and data structures with COMPAS applications written in Python.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "keywords": [
+    "compas",
+    "protobuf",
+    "serialization",
+    "interoperability",
+    "architecture"
+  ],
+  "author": {
+    "name": "Gramazio Kohler Research",
+    "url": "https://gramaziokohler.arch.ethz.ch/"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
+  "documentationUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/docs/ARCHITECTURE.md",
+  "changelogUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/gramaziokohler/compas_pb_csharp/blob/main/LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gramaziokohler/compas_pb_csharp.git",
+    "directory": "upm/dev.compas.compas-pb"
+  }
+}

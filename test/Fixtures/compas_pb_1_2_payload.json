@@ -1,0 +1,52 @@
+{
+  "data": {
+    "dictValue": {
+      "items": {
+        "ratio": {
+          "doubleValue": 0.0
+        },
+        "items": {
+          "listValue": {
+            "items": [
+              {
+                "intValue": "1"
+              },
+              {
+                "doubleValue": 2.0
+              },
+              {
+                "value": "x"
+              }
+            ]
+          }
+        },
+        "frame": {
+          "message": {
+            "@type": "type.googleapis.com/compas_pb.data.FrameData",
+            "point": {
+              "x": 1.0,
+              "y": 2.0,
+              "z": 3.0
+            },
+            "xaxis": {
+              "x": 1.0
+            },
+            "yaxis": {
+              "y": 1.0
+            }
+          }
+        },
+        "flag": {
+          "value": false
+        },
+        "count": {
+          "intValue": "0"
+        },
+        "label": {
+          "value": ""
+        }
+      }
+    }
+  },
+  "version": "1.2.0"
+}

@@ -5,15 +5,17 @@ Fetch assets from compas_pb repository
 from urllib.parse import urlparse
 import urllib.request
 import urllib.error
+import hashlib
 import json
 import zipfile
-import re
 from pathlib import Path
 import os
 
 
 compas_pb_version = "1.2.0"
-repo_url = "https://github.com/gramaziokohler/compas_pb"
+csharp_generator_version = "31.1"
+csharp_asset_sha256 = "29c23d820c8f1d1a7a384dc55de2544a5c3c8c170714c74afe585924f55ad4db"
+repo_url = "https://github.com/compas-dev/compas_pb"
 
 
 def _parse_repo_url(url: str):
@@ -65,29 +67,28 @@ def _create_version_file(version: str, output_dir: Path):
     version_file_path = Path(output_dir) / "COMPAS_PB_VERSION.json"
     with open(version_file_path, "w") as f:
         json.dump(package_info, f, indent=4)
+        f.write("\n")
 
 
 def _find_compas_asset(assets):
-    """Find the compas_pb-generated-csharp ZIP asset."""
-    pattern = r"compas_pb-generated-csharp-(\d+\.\d+)\.zip"
+    """Find the exactly pinned generated C# asset."""
+    asset_name = f"compas_pb-generated-csharp-{csharp_generator_version}.zip"
+    return next((asset for asset in assets if asset["name"] == asset_name), None)
 
-    compas_asset = None
-    latest_version = None
 
-    for asset in assets:
-        match = re.search(pattern, asset["name"])
-        if match:
-            version = float(match.group(1))
-            if latest_version is None or version > latest_version:
-                latest_version = version
-                compas_asset = asset
-
-    return compas_asset, latest_version
+def _validate_digest(archive_path: Path):
+    """Validate the archive against the checksum pinned in this repository."""
+    actual = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+    if actual != csharp_asset_sha256:
+        raise ValueError(
+            f"Checksum mismatch for {archive_path.name}: "
+            f"expected {csharp_asset_sha256}, got {actual}"
+        )
 
 
 def fetch_assets(output_dir):
     """
-    Fetch the latest compas_pb-generated-csharp asset from GitHub releases.
+    Fetch the pinned compas_pb-generated-csharp asset from a pinned GitHub release.
 
     Args:
         output_dir: Directory to save and extract the asset
@@ -106,10 +107,13 @@ def fetch_assets(output_dir):
         print("No assets found in this release")
         return False
 
-    compas_asset, version = _find_compas_asset(assets)
+    compas_asset = _find_compas_asset(assets)
 
     if not compas_asset:
-        print("No compas_pb-generated-csharp ZIP file found")
+        print(
+            "No pinned compas_pb-generated-csharp "
+            f"{csharp_generator_version} ZIP file found"
+        )
         print("Available assets:")
         for asset in assets:
             print(f"  - {asset['name']}")
@@ -117,7 +121,7 @@ def fetch_assets(output_dir):
 
     # Display asset information
     print(f"Found: {compas_asset['name']}")
-    print(f"Version: {version}")
+    print(f"Generator version: {csharp_generator_version}")
     print(f"Size: {compas_asset['size'] / 1024 / 1024:.2f} MB")
 
     # Download the asset
@@ -126,6 +130,7 @@ def fetch_assets(output_dir):
 
     try:
         urllib.request.urlretrieve(compas_asset["browser_download_url"], archive_path)
+        _validate_digest(archive_path)
         print("Download complete")
     except Exception as e:
         print(f"Download failed: {e}")
@@ -150,13 +155,17 @@ def fetch_assets(output_dir):
 if __name__ == "__main__":
     from pathlib import Path
     import shutil
+    import tempfile
 
     output_dir = Path(".") / "src" / "CompasPb" / "Generated"
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="compas_pb_csharp_") as temp_dir:
+        staging_dir = Path(temp_dir)
+        success = fetch_assets(output_dir=staging_dir)
 
-    success = fetch_assets(output_dir=output_dir)
+        if success:
+            if output_dir.exists():
+                shutil.rmtree(output_dir)
+            shutil.copytree(staging_dir, output_dir)
 
     if success:
         print("Asset fetch completed successfully!")

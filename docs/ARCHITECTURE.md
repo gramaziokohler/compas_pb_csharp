@@ -23,11 +23,32 @@ CompasPbSerializer.Unpack(byte[]) → object?
 CompasPbSerializer.Unpack<T>(byte[]) → T?
 ```
 
-JSON equivalents: `PackAsJson` / `UnpackJson` / `UnpackJson<T>`.
+JSON equivalents, implementing upstream `pb_dump_json` / `pb_load_json`:
+
+```
+CompasPbSerializer.PackAsJson(object)  → string
+CompasPbSerializer.UnpackJson(string)  → object?
+CompasPbSerializer.UnpackJson<T>(string) → T?
+```
+
+One level below the envelope, for a domain package whose own message has
+`AnyData` fields — compas_pb's built-in schema already does, in
+`MeshData.edge_keys`, `GraphData.node_keys` and `AttributeColumn.values`:
+
+```
+CompasPbSerializer.PackAsAnyData(object)   → AnyData
+CompasPbSerializer.UnpackAnyData(AnyData)  → object?
+```
+
+Without these a domain package would have to reimplement the recursive dispatch
+to fill one field. Upstream exposes the same level as `any_to_pb` / `any_from_pb`,
+and its own `conversions.py` uses it for exactly these fields.
 
 All public access goes through `CompasPbSerializer` (or the `ICompasPbSerializer`
-interface for DI). The internal helpers `Serializer` and `Deserializer` are not
-exposed.
+interface for DI). Both live in the `CompasPb` namespace; the generated message
+types live in `CompasPb.Data`. The `Serializer` and `Deserializer` helpers behind
+them are `internal`, so a caller cannot end up doing its own type dispatch — which
+is the point of the contract's "no type checking left to callers".
 
 ---
 
@@ -37,18 +58,25 @@ exposed.
 
 ```
 serialize(obj)
-  ├─ list/IEnumerable?  → list_value, recurse per item
-  ├─ IDictionary?       → dict_value, recurse per value
-  ├─ ICompasFallback?   → fallback (serialize its dict form)
-  ├─ IMessage?          → message (Any.Pack with type_url)
-  ├─ byte[]?            → value ("base64:" + encoded)
-  ├─ string?            → value
-  ├─ bool?              → value
-  ├─ integral?          → int_value
-  ├─ floating-point?    → double_value
-  ├─ null?              → value (null)
-  └─ otherwise          → TypeError
+  ├─ null?                    → value (null)
+  ├─ registered serializer?   → message (Any.Pack of the returned message)
+  ├─ registered fallback?     → fallback (its dict form, tagged with the dtype)
+  ├─ ICompasFallback?         → fallback (serialize its dict form)
+  ├─ IMessage?                → message (Any.Pack with type_url)
+  ├─ IDictionary?             → dict_value, recurse per value
+  ├─ byte[]?                  → value ("base64:" + encoded)
+  ├─ string?                  → value
+  ├─ bool?                    → value
+  ├─ integral?                → int_value
+  ├─ floating-point?          → double_value
+  ├─ IEnumerable?             → list_value, recurse per item
+  └─ otherwise                → ArgumentException
 ```
+
+Registered conversions are consulted before the structural arms, so a model type
+that happens to implement `IDictionary` or `IEnumerable` still travels as its
+registered message rather than as a container. `IEnumerable` sits last for the
+same reason — `string` and `byte[]` are enumerable too, and each has its own arm.
 
 `ICompasFallback` is checked before `IMessage` so that a domain object that
 implements both gets the fallback path (preserving its full dict representation).
@@ -63,124 +91,146 @@ compatibility with older payloads), then resolves via the registry.
 
 ## Registry and type registration
 
-### How types are registered
+The registry stores **functions**, not a required class shape — a domain model
+never has to implement a CompasPb interface or inherit a CompasPb base class.
+This mirrors `compas_pb.registry.SerializerRegistry` in Python, and the
+signatures are deliberately the same shape:
 
-`Registry` maintains a `ConcurrentDictionary<string, Type>` mapping both simple
-names (`"PointData"`) and full protobuf names (`"compas_pb.data.PointData"`) to
-their CLR types. At startup it scans its own assembly. Third-party assemblies
-register via:
+| Python | C# |
+| --- | --- |
+| `@pb_serializer(Plane)` | `Registry.RegisterSerializer<Plane, FrameData>(fn)` |
+| `@pb_deserializer(FrameData)` | `Registry.RegisterDeserializer<FrameData, Plane>(fn)` |
+| both at once | `Registry.Register<Plane, FrameData>(to, from)` |
+| `_SERIALIZERS[type]`, MRO walk | serializer lookup walks the inheritance chain |
+| `_DESERIALIZERS[full_name]` | deserializer keyed by `Descriptor.FullName` |
 
-```csharp
-// Pick any type from the domain package's assembly as the anchor
-Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
-```
+A serializer function returns the protobuf message and the runtime wraps it in
+`Any`; a deserializer function receives the message already parsed. Keeping the
+`Any` handling inside the runtime is what lets the same registration read the
+same way in Python and C#.
 
-This scans the assembly for all `IMessage` types, registers them by both
-simple and full protobuf name, and rebuilds the unpack delegate and JSON type
-caches. Call it once at startup (e.g. Grasshopper plugin load, Unity `Awake()`,
-or `Program.cs`). Safe to call multiple times (idempotent) and works on all
-targets: .NET Standard 2.0 (Unity), .NET Framework 4.8 (Rhino/Grasshopper),
-and .NET 9.
+### Generated messages
+
+Generated protobuf messages need no conversion function — they are already the
+wire type. `Registry.RegisterAssembly(assembly)` scans an assembly for `IMessage`
+implementations and registers each under its descriptor's full protobuf name.
+The runtime scans its own assembly at startup;
+`Registry.DiscoverLoadedAssemblies()` covers everything else the process has
+loaded. Both are idempotent and work on all targets: .NET Standard 2.0 (Unity),
+.NET Framework 4.8 (Rhino/Grasshopper), and .NET 9.
+
+### Fallback conversions
+
+`Registry.RegisterFallback<TObject>(dtype, to, from)` registers a COMPAS
+JSON-dump conversion for a type with no `.proto` message, keyed by COMPAS
+`dtype`. The runtime writes the envelope as well as reading it. An unregistered
+dtype deliberately decodes to its dictionary instead of throwing, so an unknown
+payload stays inspectable and forwardable — the equivalent of Python handing
+back what `DataDecoder` could not resolve.
 
 ### Type URL resolution
 
-`Registry.GetType(string typeUrl)` resolves a protobuf type URL to a CLR type:
+`Registry.GetType(string typeUrl)` takes everything after the last `/` and looks
+it up as a full protobuf name. There is no simple-name fallback: matching
+`"PointData"` on its own would collide the moment a domain package ships a
+message of the same name, and the contract is explicit that type URLs match on
+the full name.
 
-1. Strip `type.googleapis.com/` prefix if present
-2. Look up the full protobuf name (e.g. `compas_pb.data.PointData`)
-3. Fall back to simple name (e.g. `PointData`) for backward compatibility
+`Registry.UnpackAs(Any, Type)` is the companion: it returns the parsed **message**
+rather than whatever domain object a registered deserializer would build. A caller
+that dispatches on the protobuf type — a Unity or Rhino layer choosing its own
+wrapper per message type — needs the message, not the conversion. `Unpack` remains
+the path that applies registered conversions.
 
-This matches on the full name after the last `/`, as required by the runtime
-contract.
+`Registry.GetRegisteredTypes()` enumerates every message the registry knows,
+after scanning loaded assemblies.
 
-### The `[CompasPbRegistration]` attribute
+### The `[CompasPbRegistrations]` attribute
 
-An assembly-level marker attribute that domain packages can apply:
-
-```csharp
-[assembly: CompasPb.CompasPbRegistration]
-```
-
-Today the attribute is a convention — you must still call `RegisterAssembly`
-explicitly at startup. It exists so a future version can scan for marked
-assemblies automatically, without consumers needing to change their code.
-
-### Example: using third-party domain types
-
-Domain owners define `.proto` files in their own repos. `compas_pb`'s build
-tasks generate C# bindings, and the domain owner publishes them (as a NuGet
-package or release asset). The C# consumer installs the bindings and registers
-the assembly -- no changes to `compas_pb_csharp` needed.
+Requiring the host application to call each package's registration code means
+every host has to know about every package. A package declares its registrar on
+its own assembly instead:
 
 ```csharp
-using CompasPb;
-using CompasPb.Data;
-using MyDomainPackage.Data;  // from the domain package's generated C# bindings
+[assembly: CompasPbRegistrations(typeof(ToolPathConversions))]
 
-// At startup -- register the domain package's types with the runtime
-Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
-
-// Pack/Unpack now works for the domain package's types
-var serializer = new CompasPbSerializer();
-
-var toolPath = new ToolPathData
+public static class ToolPathConversions
 {
-    Name = "milling_path_01",
-    Frame = new FrameData
+    public static void Register()
     {
-        Point = new PointData { X = 0.0, Y = 5.0, Z = 0.0 },
-        Xaxis = new VectorData { X = 1.0, Y = 0.0, Z = 0.0 },
-        Yaxis = new VectorData { X = 0.0, Y = 0.0, Z = 1.0 },
-    },
-};
-
-// Send to Python -- Python receives the same object
-byte[] bytes = serializer.Pack(toolPath);
-
-// Receive from Python
-var received = serializer.Unpack<ToolPathData>(bytes);
+        Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
+        Registry.Register<ToolPath, ToolPathData>(/* ... */);
+    }
+}
 ```
 
-The runtime has no knowledge of the domain package -- it just scans the
-assembly for `IMessage` types and makes them available to `Pack`/`Unpack`.
+`Registry`'s static constructor reads that attribute off every loaded assembly
+and invokes each registrar once, so a package's types work by being referenced.
+Reading an assembly-level attribute does not enumerate types, which keeps the
+startup pass cheap; the expensive `IMessage` scan stays lazy in
+`DiscoverLoadedAssemblies`.
 
-For a step-by-step guide, see [Using compas_pb_csharp as a Domain Package](./DOMAIN_PACKAGE.md).
+That startup sweep alone is not enough. `AppDomain.GetAssemblies()` reports only
+the assemblies the process has already loaded, and the runtime loads a
+referenced assembly lazily — on first use of one of its types, at the point the
+referencing method is jitted. A domain package the host has not touched yet is
+therefore invisible to the sweep. So the registry also subscribes to
+`AppDomain.AssemblyLoad` and reads the attribute off each assembly as it
+arrives. The subscription is made last, after the startup sweep, so a load on
+another thread cannot run a handler that blocks on the initializer while the
+sweep holds it. A conversion can still be missing at the moment it is needed
+and present a moment later — a load during that startup window, or a host whose
+runtime does not raise the event — so the unsupported-type error says as much
+and points at `Registry.DiscoverRegistrations()`.
 
-### Converter-function registry
+The registrations themselves stay explicit `Register<,>` calls, so the generic
+instantiations remain statically visible and survive IL2CPP or trimming; only
+the call *into* `Register` is discovered reflectively. Under a stripping linker,
+preserve the registrar type so its method is kept.
 
-Domain packages often have their own model types (e.g. Unity's `Vector3`,
-Rhino's `Point3d`) that are not `IMessage` implementations. The converter
-registry lets them register serializer/deserializer pairs so `Pack`/`Unpack`
-work transparently with those types.
+For a step-by-step guide, see [Using CompasPb from a domain package](./DOMAIN_PACKAGE.md).
 
-```csharp
-// At startup -- register converters for domain types
-Registry.RegisterSerializer<Plane>(plane =>
-    Any.Pack(new FrameData
-    {
-        Point = new PointData { X = plane.Origin.X, Y = plane.Origin.Y, Z = plane.Origin.Z },
-        Xaxis = new VectorData { X = plane.XAxis.X, Y = plane.XAxis.Y, Z = plane.XAxis.Z },
-        Yaxis = new VectorData { X = plane.YAxis.X, Y = plane.YAxis.Y, Z = plane.YAxis.Z },
-    }));
+---
 
-Registry.RegisterDeserializer("compas_pb.data.FrameData", any =>
-{
-    var frame = any.Unpack<FrameData>();
-    return new Plane(
-        new Point(frame.Point.X, frame.Point.Y, frame.Point.Z),
-        new Vector(frame.Xaxis.X, frame.Xaxis.Y, frame.Xaxis.Z),
-        new Vector(frame.Yaxis.X, frame.Yaxis.Y, frame.Yaxis.Z));
-});
+## JSON
 
-// Now Pack/Unpack work with Plane directly
-var serializer = new CompasPbSerializer();
-byte[] bytes = serializer.Pack(myPlane);       // uses the registered serializer
-var plane = (Plane)serializer.Unpack(bytes);    // uses the registered deserializer
-```
+`PackAsJson` / `UnpackJson` implement upstream `pb_dump_json` / `pb_load_json`
+over the same `MessageData` envelope, so a JSON payload crosses between runtimes
+exactly as a binary one does.
 
-The serializer converts a domain object to `Any`; the deserializer converts
-`Any` back to a domain object. Both are keyed so the runtime can dispatch
-without knowing the domain types at compile time.
+protobuf-json cannot read or write an `Any` field without a descriptor for the
+message inside it. Python gets that from the default descriptor pool; C# needs
+an explicit `TypeRegistry`, which `Registry.GetJsonTypeRegistry()` builds from
+the descriptors the registry already holds and caches until a new type is
+registered.
+
+`FormatDefaultValues` is left off, matching `MessageToJson`'s defaults, so the
+two runtimes emit comparable JSON for the same object. Every `AnyData` arm is a
+`oneof` member, and protobuf-json always writes a set `oneof` field, so a zero,
+an empty string, or a `false` still survives the round trip.
+
+---
+
+## Wire version compatibility
+
+Every payload carries the `compas_pb` version in its `MessageData` envelope, and
+every read checks it. compas_pb reuses protobuf field numbers across format
+revisions, so data written by an incompatible version can *silently misparse*
+rather than fail cleanly — which is why a missing or mismatched version is a hard
+error rather than a warning.
+
+The comparison is on a compatibility key, not the full version, matching Python's
+`_wire_compat_key`:
+
+| Version | Key | Compatible with |
+| --- | --- | --- |
+| `0.5.x` | `0.5` | other `0.5.x` only — under 0.x every minor release may change the schema |
+| `1.0`, `1.2` | `1` | each other — from 1.0 on, minor releases stay backwards-compatible |
+| `2.0` | `2` | not `1.x` |
+
+A mismatch raises `InvalidOperationException`. This runtime is built against the
+version pinned in `resources/COMPAS_PB_VERSION.json`, embedded as a resource and
+read back through `PackageInfo.Version`.
 
 ---
 
@@ -205,13 +255,16 @@ Status of `compas_pb_csharp` against the
 - [x] Bytes go through the `base64:` prefix
 - [x] `fallback` is written, not only read
 - [x] Old `Any`-wrapped lists and dicts still decode
-- [x] Type URLs matched on the full name after the last `/`
+- [x] Type URLs matched on the full name after the last `/`, with no simple-name fallback
 - [x] Registry holds functions, and other packages can register types.
-      `RegisterAssembly` scans for `IMessage` types;
-      `RegisterSerializer<T>` / `RegisterDeserializer` let domain packages
-      supply converter functions for non-`IMessage` types (e.g.
-      Unity `Vector3` ↔ `PointData`).
+      `Register<TObject, TMessage>` takes a conversion function in each
+      direction for non-`IMessage` model types (e.g. Unity `Vector3` ↔
+      `PointData`); `RegisterAssembly` covers generated messages;
+      `[assembly: CompasPbRegistrations(...)]` lets a package register itself
+      without the host calling into it. Serializer lookup follows the
+      inheritance chain, so a base-class registration covers derived types.
 - [x] One entry point each way, with no type checking left to callers
 - [x] Bindings come from a pinned release, not copied into the repo
 - [x] Shared `compas_pb` types come from the runtime package
-- [x] Tested both directions against bytes Python produced
+- [x] Tested both directions against bytes Python produced, and the same for JSON
+      against `pb_dump_json` output (`test/Fixtures`)

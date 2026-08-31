@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using CompasPb;
 using CompasPb.Data;
+using Google.Protobuf.WellKnownTypes;
 using Xunit;
 
 public class SerializerTest
@@ -186,6 +188,22 @@ public class SerializerTest
     }
 
     [Fact]
+    public void Unpack_LegacyAnyWrappedContainers()
+    {
+        var legacyList = new ListData();
+        legacyList.Items.Add(Serializer.PackAsAnyData(1));
+        var legacyDictionary = new DictData();
+        legacyDictionary.Items.Add("items", new AnyData { Message = Any.Pack(legacyList) });
+
+        var result = Assert.IsType<Dictionary<string, object?>>(
+            Deserializer.UnpackAnyData(new AnyData { Message = Any.Pack(legacyDictionary) })
+        );
+        var items = Assert.IsType<List<object?>>(result["items"]);
+
+        Assert.Equal(1L, items[0]);
+    }
+
+    [Fact]
     public void RoundTrip_Json_PointData_Typed()
     {
         var input = new PointData
@@ -266,5 +284,77 @@ public class SerializerTest
 
         var outer = Assert.IsType<List<object?>>(result);
         Assert.Equal(2, outer.Count);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(42)]
+    public void RoundTrip_Json_Int(int value)
+    {
+        // Every AnyData arm is a oneof member, so protobuf-json writes it even at its default
+        // value. That is what keeps a zero from vanishing while FormatDefaultValues stays off.
+        Assert.Equal((long)value, _serializer.UnpackJson(_serializer.PackAsJson(value)));
+    }
+
+    [Fact]
+    public void RoundTrip_Json_KeepsWholeNumbersAndFloatsApart()
+    {
+        Assert.IsType<long>(_serializer.UnpackJson(_serializer.PackAsJson(42)));
+        Assert.IsType<double>(_serializer.UnpackJson(_serializer.PackAsJson(42.0)));
+    }
+
+    [Fact]
+    public void RoundTrip_Json_EmptyStringAndFalseAndNull()
+    {
+        Assert.Equal("", _serializer.UnpackJson(_serializer.PackAsJson("")));
+        Assert.Equal(false, _serializer.UnpackJson(_serializer.PackAsJson(false)));
+        Assert.Null(_serializer.UnpackJson(_serializer.PackAsJson(null)));
+    }
+
+    [Fact]
+    public void RoundTrip_Json_Bytes_UsesPythonCompatibleBase64Prefix()
+    {
+        byte[] input = [0, 1, 2, 254, 255];
+
+        var result = Assert.IsType<byte[]>(_serializer.UnpackJson(_serializer.PackAsJson(input)));
+
+        Assert.Equal(input, result);
+    }
+
+    [Fact]
+    public void PackAsJson_OmitsDefaultValuedFields_LikePythonMessageToJson()
+    {
+        // Upstream pb_dump_json calls MessageToJson with its defaults, which skip fields sitting
+        // at their default. Emitting them here would make the two runtimes' JSON diverge.
+        var json = _serializer.PackAsJson(new PointData { X = 1.0f });
+
+        Assert.Contains("\"x\": 1", json);
+        Assert.DoesNotContain("\"y\"", json);
+    }
+
+    [Fact]
+    public void UnpackJson_RejectsAPayloadFromAnIncompatibleWireVersion()
+    {
+        var json = _serializer.PackAsJson(1).Replace(PackageInfo.Version, "99.0.0");
+
+        _ = Assert.Throws<InvalidOperationException>(() => _serializer.UnpackJson(json));
+    }
+
+    [Fact]
+    public void PackAsAnyData_FillsAMessageFieldWithoutAnEnvelope()
+    {
+        // MeshData.EdgeKeys is a repeated AnyData, so a domain package mapping onto it needs the
+        // value level of the codec, not the envelope level. This is the C# equivalent of what
+        // upstream conversions.py does with _serializer_any / _deserialize_any.
+        var mesh = new MeshData();
+        mesh.EdgeKeys.Add(_serializer.PackAsAnyData(new List<object> { 0, 1 }));
+        mesh.EdgeKeys.Add(_serializer.PackAsAnyData("boundary"));
+
+        var restored = _serializer.Unpack<MeshData>(_serializer.Pack(mesh));
+
+        Assert.NotNull(restored);
+        var key = Assert.IsType<List<object?>>(_serializer.UnpackAnyData(restored.EdgeKeys[0]));
+        Assert.Equal(new object?[] { 0L, 1L }, key);
+        Assert.Equal("boundary", _serializer.UnpackAnyData(restored.EdgeKeys[1]));
     }
 }

@@ -1,6 +1,6 @@
-# Using compas_pb_csharp as a Domain Package
+# Using CompasPb from a domain package
 
-This guide explains how to consume domain package types from C# using
+This guide explains how to bring a domain package's types into C# with
 `compas_pb_csharp` as the runtime.
 
 For background on domain packages vs. language runtimes, see the upstream
@@ -21,8 +21,8 @@ bindings for each language. Examples:
 | `compas_timber` | Timber construction |
 
 The domain package publishes generated C# bindings (as a NuGet package or
-release asset). The C# consumer installs the bindings and registers the
-assembly with the runtime.
+release asset). The runtime itself never learns about them: it only needs the
+messages to be reachable, and the conversions to be registered.
 
 ---
 
@@ -37,47 +37,30 @@ dotnet add package Antikythera.Data   # example domain package
 
 ---
 
-## Step 2: Register the assembly at startup
+## Step 2: Pack and unpack the generated messages
 
-Call `RegisterAssembly` once at startup, passing any type from the domain
-package's assembly as an anchor:
+Generated protobuf messages need no conversion functions — they *are* the wire
+type. Point the registry at the assembly holding them, using any type from it as
+an anchor:
 
 ```csharp
+using CompasPb;
 using CompasPb.Data;
 using Antikythera.Data;  // from the domain package's generated C# bindings
 
 // At startup (e.g. Program.cs, Grasshopper plugin load, Unity Awake())
 Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
-```
 
-This scans the assembly for all `IMessage` types, registers them by both
-simple and full protobuf name, and rebuilds internal caches. Safe to call
-multiple times (idempotent).
-
-Optionally mark the assembly with `[CompasPbRegistration]` as a convention
-for future auto-discovery:
-
-```csharp
-[assembly: CompasPb.CompasPbRegistration]
-```
-
----
-
-## Step 3: Pack and Unpack
-
-Once registered, `Pack`/`Unpack` work for the domain package's types:
-
-```csharp
 var serializer = new CompasPbSerializer();
 
 var toolPath = new ToolPathData
 {
     Name = "milling_path_01",
-    Frame = new FrameData
+    ToolFrame = new FrameData
     {
-        Point = new PointData { X = 0.0, Y = 5.0, Z = 0.0 },
-        Xaxis = new VectorData { X = 1.0, Y = 0.0, Z = 0.0 },
-        Yaxis = new VectorData { X = 0.0, Y = 0.0, Z = 1.0 },
+        Point = new PointData { X = 0.0f, Y = 5.0f, Z = 0.0f },
+        Xaxis = new VectorData { X = 1.0f, Y = 0.0f, Z = 0.0f },
+        Yaxis = new VectorData { X = 0.0f, Y = 0.0f, Z = 1.0f },
     },
 };
 
@@ -85,49 +68,138 @@ var toolPath = new ToolPathData
 byte[] bytes = serializer.Pack(toolPath);
 
 // Receive from Python
-var received = serializer.Unpack<ToolPathData>(bytes);
+ToolPathData? received = serializer.Unpack<ToolPathData>(bytes);
 ```
+
+`RegisterAssembly` scans for `IMessage` types and keys each one by its
+descriptor's full protobuf name. It is idempotent, so repeat calls are free.
+`Registry.DiscoverLoadedAssemblies()` does the same for every assembly the
+process has already loaded.
 
 ---
 
-## Converter functions (optional)
+## Step 3: Register your own model types
 
-If the domain has its own model types that are not `IMessage` implementations
-(e.g. Unity's `Vector3`, Rhino's `Point3d`), register converter functions so
-`Pack`/`Unpack` work with them directly:
+Domain packages usually have model classes of their own — a Unity `Vector3`, a
+Rhino `Point3d`, a hand-written `Plane` — that are not `IMessage`
+implementations. Register a conversion function in each direction and the
+runtime handles them like any other type:
 
 ```csharp
-// Serializer: domain type -> Any
-Registry.RegisterSerializer<Plane>(plane =>
-    Any.Pack(new FrameData
+Registry.Register<Plane, FrameData>(
+    plane => new FrameData
     {
         Point = new PointData { X = plane.Origin.X, Y = plane.Origin.Y, Z = plane.Origin.Z },
         Xaxis = new VectorData { X = plane.XAxis.X, Y = plane.XAxis.Y, Z = plane.XAxis.Z },
         Yaxis = new VectorData { X = plane.YAxis.X, Y = plane.YAxis.Y, Z = plane.YAxis.Z },
-    }));
+    },
+    message => new Plane(
+        new Point(message.Point.X, message.Point.Y, message.Point.Z),
+        new Vector(message.Xaxis.X, message.Xaxis.Y, message.Xaxis.Z),
+        new Vector(message.Yaxis.X, message.Yaxis.Y, message.Yaxis.Z))
+);
 
-// Deserializer: Any -> domain type (keyed by full protobuf name)
-Registry.RegisterDeserializer("compas_pb.data.FrameData", any =>
-{
-    var frame = any.Unpack<FrameData>();
-    return new Plane(
-        new Point(frame.Point.X, frame.Point.Y, frame.Point.Z),
-        new Vector(frame.Xaxis.X, frame.Xaxis.Y, frame.Xaxis.Z),
-        new Vector(frame.Yaxis.X, frame.Yaxis.Y, frame.Yaxis.Z));
-});
-
-// Now Pack/Unpack work with Plane directly
-var serializer = new CompasPbSerializer();
+// Pack/Unpack now work with Plane directly
 byte[] bytes = serializer.Pack(myPlane);
-var plane = (Plane)serializer.Unpack(bytes);
+var plane = (Plane)serializer.Unpack(bytes)!;
 ```
 
-To remove a converter (e.g. in tests):
+The serializer function returns the protobuf message; the runtime wraps it in
+`Any`. The deserializer function receives the message already parsed. This
+mirrors the Python `@pb_serializer` / `@pb_deserializer` pair, which is what
+keeps a registration reading the same way in both languages.
+
+Register the two halves separately with `Registry.RegisterSerializer<TObject,
+TMessage>` and `Registry.RegisterDeserializer<TMessage, TObject>` when only one
+direction is needed.
+
+Serializer lookup walks the C# inheritance chain, so registering a base class
+also covers everything derived from it — the same rule as Python's MRO walk.
+
+---
+
+## Step 4: Register without a startup call
+
+Requiring every host application to call your package's registration code means
+every host has to know about every package. Declare the registrar on your
+assembly instead, and CompasPb invokes it the first time it is needed:
 
 ```csharp
-Registry.UnregisterSerializer<Plane>();
-Registry.UnregisterDeserializer("compas_pb.data.FrameData");
+[assembly: CompasPbRegistrations(typeof(AntikytheraConversions))]
+
+public static class AntikytheraConversions
+{
+    public static void Register()
+    {
+        Registry.RegisterAssembly(typeof(ToolPathData).Assembly);
+        Registry.Register<Plane, FrameData>(/* ... */);
+    }
+}
 ```
+
+Each declared registrar runs at most once. Reading the attribute does not
+enumerate your types, so discovery stays cheap.
+
+Your package does not have to be loaded when CompasPb starts up. The runtime
+loads a referenced assembly lazily — on first use of one of its types, not
+because a project referenced it — so a host that has not touched your package
+yet is a normal state, not an error. CompasPb watches for assemblies arriving
+and runs your registrar when yours does.
+`Registry.DiscoverRegistrations()` forces a sweep by hand if you ever need
+one.
+
+Keep the registrations themselves as explicit `Register<,>` calls. That keeps
+the generic instantiations statically visible, so they survive IL2CPP and
+trimming — only the call *into* `Register` is discovered reflectively. Under a
+stripping linker, preserve the registrar type so its method is kept.
+
+---
+
+## Messages with `AnyData` fields
+
+A `.proto` message can hold arbitrary compas_pb values through `AnyData` — the
+built-in `MeshData.edge_keys`, `GraphData.node_keys` and
+`AttributeColumn.values` all do. Fill and read those with the value-level pair
+rather than reimplementing the dispatch:
+
+```csharp
+var mesh = new MeshData();
+foreach (var edge in edges)
+{
+    mesh.EdgeKeys.Add(serializer.PackAsAnyData(edge.Key));
+}
+
+var key = serializer.UnpackAnyData(mesh.EdgeKeys[0]);
+```
+
+`Pack` / `Unpack` stay the entry points for a whole payload; these two are for a
+single field inside a message you are already building.
+
+---
+
+## COMPAS types with no protobuf schema
+
+A COMPAS type that has no `.proto` message still travels, through the fallback
+envelope, as its COMPAS JSON dump:
+
+```csharp
+Registry.RegisterFallback<Widget>(
+    "my_package/Widget",
+    widget => new Dictionary<string, object>
+    {
+        ["data"] = new Dictionary<string, object> { ["name"] = widget.Name },
+    },
+    values =>
+    {
+        var data = (Dictionary<string, object?>)values["data"]!;
+        return new Widget((string)data["name"]!);
+    }
+);
+```
+
+The runtime writes the registered `dtype` into the envelope. A fallback dtype
+with no C# registration deliberately comes back as its dictionary rather than
+throwing, so an unknown payload stays inspectable and forwardable.
 
 ---
 
@@ -136,6 +208,10 @@ Registry.UnregisterDeserializer("compas_pb.data.FrameData");
 | Step | What | Where |
 | --- | --- | --- |
 | Install | Add the domain package's NuGet bindings | `dotnet add package` |
-| Register | `Registry.RegisterAssembly(typeof(T).Assembly)` | Startup code |
+| Generated messages | `Registry.RegisterAssembly(typeof(T).Assembly)` | Registrar or startup |
+| Model types | `Registry.Register<TObject, TMessage>(to, from)` | Registrar or startup |
+| No schema | `Registry.RegisterFallback<TObject>(dtype, to, from)` | Registrar or startup |
+| Discovery | `[assembly: CompasPbRegistrations(typeof(...))]` | Your package |
 | Use | `serializer.Pack(obj)` / `serializer.Unpack<T>(bytes)` | Anywhere |
-| Convert (optional) | `RegisterSerializer<T>` / `RegisterDeserializer` | Startup code |
+| JSON | `serializer.PackAsJson(obj)` / `serializer.UnpackJson<T>(json)` | Anywhere |
+| `AnyData` fields | `serializer.PackAsAnyData(v)` / `serializer.UnpackAnyData(a)` | Inside your `ToProto` / `FromProto` |

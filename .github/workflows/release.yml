@@ -5,83 +5,35 @@ on:
     branches:
       - main
 
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: "Version bump type"
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  # ── Bump: manually triggered to create a release branch ──
-  bump:
-    if: github.event_name == 'workflow_dispatch'
+  # release-please maintains a release pull request from conventional commits.
+  # Merging it bumps version.json and the Unity package.json, writes CHANGELOG.md,
+  # tags vX.Y.Z, and creates the GitHub release. Everything below publishes into
+  # that release and only runs on the push that merged it.
+  release-please:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Bump version
-        uses: ./.github/actions/bump
-        with:
-          bump: ${{ inputs.bump }}
-
-  # ── Release: fires when an untagged release version reaches main ──
-  check-release:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
-      is_release: ${{ steps.check.outputs.is_release }}
-      version: ${{ steps.check.outputs.version }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
         with:
-          fetch-depth: 0
-
-      - name: Check for an untagged release
-        id: check
-        shell: bash
-        run: |
-          VERSION=$(grep -m1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md \
-            | sed -E 's/^## \[([^]]+)\].*/\1/')
-          PROJECT_VERSION=$(jq -r '.version | split("-")[0]' version.json)
-
-          if [[ -z "$VERSION" || ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "ERROR: CHANGELOG.md has no valid versioned release section."
-            exit 1
-          fi
-
-          if [[ "$PROJECT_VERSION" != "$VERSION" ]]; then
-            echo "No release: project version ${PROJECT_VERSION} does not match changelog ${VERSION}."
-            echo "is_release=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null \
-            || git rev-parse --verify --quiet "refs/tags/${VERSION}" >/dev/null; then
-            echo "No release: ${VERSION} is already tagged."
-            echo "is_release=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Release detected: ${VERSION}"
-          echo "is_release=true" >> $GITHUB_OUTPUT
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
   build-and-test:
-    needs: [check-release]
-    if: needs.check-release.outputs.is_release == 'true'
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -116,14 +68,15 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Install CSharpier
-        run: |
-          dotnet tool install -g csharpier
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+      # Pinned in .config/dotnet-tools.json, so a release formats with the same CSharpier
+      # the pull request was checked against.
+      - name: Restore dotnet tools
+        working-directory: ${{ github.workspace }}
+        run: dotnet tool restore
 
       - name: Check formatting
         working-directory: ${{ github.workspace }}
-        run: csharpier check .
+        run: dotnet csharpier check .
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
@@ -133,8 +86,8 @@ jobs:
         run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal
 
   publish:
-    needs: [check-release, build-and-test]
-    if: needs.check-release.outputs.is_release == 'true'
+    needs: [release-please, build-and-test]
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -147,10 +100,6 @@ jobs:
           - os: macos-latest
             rid: osx-x64
 
-    defaults:
-      run:
-        working-directory: src/CompasPb
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -170,7 +119,7 @@ jobs:
       - name: Fetch compas_pb assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python ../../fetch_compas_pb.py
+        run: python fetch_compas_pb.py
 
       - name: Restore
         run: dotnet restore
@@ -179,9 +128,8 @@ jobs:
         shell: bash
         run: |
           OUTPUT_PATH="${{ github.workspace }}/release_artifacts/${{ matrix.os }}/${{ matrix.framework }}"
-          PROJECT_FILE="${{ github.workspace }}/src/CompasPb/CompasPb.csproj"
 
-          dotnet publish "$PROJECT_FILE" -c Release \
+          dotnet publish src/CompasPb/CompasPb.csproj -c Release \
             --self-contained true \
             -r ${{ matrix.rid }} \
             -f ${{ matrix.framework }} \
@@ -195,8 +143,8 @@ jobs:
           if-no-files-found: error
 
   nuget-publish:
-    needs: [check-release, build-and-test]
-    if: needs.check-release.outputs.is_release == 'true'
+    needs: [release-please, build-and-test]
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -234,7 +182,7 @@ jobs:
       - name: Pack
         shell: bash
         run: |
-          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION="${{ needs.release-please.outputs.version }}"
           dotnet pack CompasPb.csproj \
             --configuration Release \
             --no-restore \
@@ -242,6 +190,14 @@ jobs:
             -o ${{ github.workspace }}/nupkg
 
           test -f "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg"
+          test -f "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.snupkg"
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: compas-pb-nuget
+          path: ${{ github.workspace }}/nupkg/CompasPb.*nupkg
+          if-no-files-found: error
 
       - name: Check NuGet account configuration
         shell: bash
@@ -264,43 +220,105 @@ jobs:
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
-          VERSION="${{ needs.check-release.outputs.version }}"
-          dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.nupkg" \
-            --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+          VERSION="${{ needs.release-please.outputs.version }}"
+          for package in nupkg snupkg; do
+            dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.${package}" \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
 
-          dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.snupkg" \
-            --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
-
-  release:
-    needs: [check-release, publish, nuget-publish]
-    if: needs.check-release.outputs.is_release == 'true'
+  # OpenUPM packs the tree at a tag and never builds, so the compiled package is
+  # published to a dedicated branch whose tags carry only the Unity artifacts.
+  # main stays free of binaries.
+  upm-publish:
+    needs: [release-please, build-and-test]
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Create and push tag
+      - name: Setup Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch compas_pb assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python fetch_compas_pb.py
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build the Unity package
+        run: python build_upm.py --validate
+
+      - name: Publish to the upm branch
+        shell: bash
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          VERSION=${{ needs.check-release.outputs.version }}
-          TAG="v$VERSION"
+          set -euo pipefail
+          PACKAGE_DIR="upm/dev.compas.compas-pb"
+          TAG="upm/v${VERSION}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "ERROR: ${TAG} already exists."
+            exit 1
+          fi
+
+          STAGE=$(mktemp -d)
+          cp -R "${PACKAGE_DIR}/." "${STAGE}/"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Continue the upm branch when it exists so its history stays linear.
+          if git ls-remote --exit-code --heads origin upm >/dev/null 2>&1; then
+            git fetch --depth=1 origin upm
+            git checkout -B upm FETCH_HEAD
+          else
+            git checkout --orphan upm
+          fi
+
+          git rm -rq --cached . || true
+          find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+          cp -R "${STAGE}/." .
+
+          git add -A
+          git commit -m "Unity package ${VERSION}"
+          git push origin upm
           git tag "$TAG"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_ENV
 
-      - name: Download all published artifacts
+          echo "Published ${TAG} to the upm branch."
+
+  upload-release-assets:
+    needs: [release-please, publish, nuget-publish, upm-publish]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download published artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./release-assets
 
-      - name: Zip artifacts
+      - name: Zip platform artifacts
         run: |
           cd ./release-assets
           for dir in compas-pb-dist-*; do
@@ -314,10 +332,10 @@ jobs:
               fi
           done
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.tag }}
-          name: Release ${{ needs.check-release.outputs.version }}
-          files: ./release-assets/*.zip
-          body_path: CHANGELOG.md
+      - name: Attach assets to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            ./release-assets/*.zip --clobber

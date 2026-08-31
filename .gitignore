@@ -3,6 +3,9 @@
 .idea/
 .nvim/
 
+# macOS
+.DS_Store
+
 # Build directories - ignore all bin and obj folders anywhere
 **/bin/
 **/obj/
@@ -73,6 +76,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Unity package binaries are built by build_upm.py and published to the upm branch.
+upm/*/Runtime/
 
 # os
 .DS_Store

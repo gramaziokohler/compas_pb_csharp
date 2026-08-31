@@ -1,0 +1,5 @@
+# Built artifacts staged into the Unity package by build_upm.py.
+upm/*/Runtime/
+
+# Generated protobuf bindings fetched by fetch_compas_pb.py.
+src/CompasPb/Generated/

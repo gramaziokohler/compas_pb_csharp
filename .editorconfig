@@ -308,7 +308,7 @@ dotnet_diagnostic.CA1852.severity = none        # Type can be sealed
 dotnet_diagnostic.CA2007.severity = none        # Do not directly await Task (app code, not library)
 dotnet_diagnostic.CA2234.severity = none        # Pass System.Uri instead of strings
 dotnet_diagnostic.CA1854.severity = none        # Prefer TryGetValue over ContainsKey + indexer
-dotnet_diagnostic.CA1510.severity = none        # ThrowIfNull not available on netstandard2.0/net48
+dotnet_diagnostic.CA1510.severity = none        # ThrowIfNull is unavailable on netstandard2.0/net48
 
 # ── IDE ───────────────────────────────────────
 dotnet_diagnostic.IDE0003.severity = suggestion # Remove this/Me qualification

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- A stand-in for a domain package the host references but does not call into. The test
+         project deliberately does not reference this assembly, so nothing loads it until
+         LateAssemblyDiscoveryTest asks for it by path: that is what makes it a real late load
+         rather than one the startup sweep would have caught anyway. -->
+    <PropertyGroup>
+        <TargetFrameworks>net9.0;net48</TargetFrameworks>
+        <AssemblyName>CompasPb.Test.LatePlugin</AssemblyName>
+        <RootNamespace>CompasPb.Test.LatePlugin</RootNamespace>
+        <IsPackable>false</IsPackable>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../src/CompasPb/CompasPb.csproj" />
+    </ItemGroup>
+</Project>

@@ -5,8 +5,33 @@
         <ParallelizeTestCollections>false</ParallelizeTestCollections>
     </PropertyGroup>
 
+    <!-- .NET Framework does not unify assembly versions the way .NET Core does. Google.Protobuf's
+         net45 build binds System.Memory 4.0.5.0, while restore resolves System.Memory 4.5.3, whose
+         assembly version is 4.0.1.1; without redirects the load fails with a FileLoadException and
+         every test dies in discovery. GenerateBindingRedirectsOutputType is needed as well as
+         AutoGenerateBindingRedirects because this is a library, not an Exe, and only the pair
+         writes CompasPb.Test.dll.config. -->
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net48'" Label="Assembly Binding">
+        <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+        <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    </PropertyGroup>
+
+    <!-- LatePlugin is its own project. It sits under test/ because it is test material, which
+         means the SDK's default globs would otherwise compile its sources into this assembly. -->
+    <ItemGroup Label="Fixture Project Sources">
+        <Compile Remove="LatePlugin/**" />
+        <EmbeddedResource Remove="LatePlugin/**" />
+        <None Remove="LatePlugin/**" />
+    </ItemGroup>
+
     <ItemGroup Label="Project References">
         <ProjectReference Include="../src/CompasPb/CompasPb.csproj" />
+
+        <!-- Built and copied next to the tests. No test code names a type from it, so the
+             runtime never loads it on its own — which is exactly the situation
+             LateAssemblyDiscoveryTest reproduces, and it asserts as much before loading it by
+             path. -->
+        <ProjectReference Include="LatePlugin/CompasPb.Test.LatePlugin.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Test Dependencies">
@@ -31,8 +56,13 @@
 
     <!-- Explicitly copy the xunit test adapter to the output directory so VSTest can discover it.
          xunit.runner.visualstudio 2.x targets net6.0/net462 and NuGet does not auto-import its
-         build props when the project targets net9.0 (resolved via netfx compat fallback). -->
-    <ItemGroup Label="Test Adapter">
+         build props when the project targets net9.0 (resolved via netfx compat fallback).
+
+         Scoped to net9.0 on purpose. Under net48 the package's own net462 props are imported
+         correctly, and copying the net6.0 adapter as well overwrites the net462
+         xunit.runner.visualstudio.testadapter.dll with a netcoreapp build that .NET Framework
+         VSTest cannot load, leaving the net48 run reporting "No test is available". -->
+    <ItemGroup Label="Test Adapter" Condition="'$(TargetFramework)' == 'net9.0'">
         <None
             Include="$(NuGetPackageRoot)xunit.runner.visualstudio/2.8.2/build/net6.0/xunit.runner.visualstudio.testadapter.dll"
             CopyToOutputDirectory="PreserveNewest"
@@ -52,5 +82,9 @@
 
     <ItemGroup Label="Interop Fixtures">
         <None Include="Fixtures/compas_pb_1_1_model.b64" CopyToOutputDirectory="PreserveNewest" />
+        <None
+            Include="Fixtures/compas_pb_1_2_payload.json"
+            CopyToOutputDirectory="PreserveNewest"
+        />
     </ItemGroup>
 </Project>

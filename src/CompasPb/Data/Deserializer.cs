@@ -5,6 +5,10 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace CompasPb.Data;
 
+/// <summary>
+/// Decodes the compas_pb wire format back into objects. Internal: callers go through
+/// <see cref="CompasPbSerializer"/>, which is the runtime's single entry point out.
+/// </summary>
 internal static class Deserializer
 {
     public static AnyData UnpackBytes(byte[] data)
@@ -18,16 +22,22 @@ internal static class Deserializer
         return message.Data;
     }
 
-    public static AnyData UnpackJson(string jsonString)
+    /// <summary>
+    /// Parses a protobuf-JSON string produced by any compas_pb runtime, and checks its version.
+    /// </summary>
+    public static AnyData UnpackJson(string json)
     {
-        if (string.IsNullOrWhiteSpace(jsonString))
+        if (string.IsNullOrWhiteSpace(json))
         {
-            throw new ArgumentException("JSON string cannot be null or empty.", nameof(jsonString));
+            throw new ArgumentException("JSON string cannot be null or empty.", nameof(json));
         }
-        var parser = new JsonParser(new JsonParser.Settings(20, Registry.GetJsonTypeRegistry()));
-        MessageData messageData = parser.Parse<MessageData>(jsonString);
-        ValidateVersion(messageData.Version);
-        return messageData.Data;
+
+        var parser = new JsonParser(
+            JsonParser.Settings.Default.WithTypeRegistry(Registry.GetJsonTypeRegistry())
+        );
+        var message = parser.Parse<MessageData>(json);
+        ValidateVersion(message.Version);
+        return message.Data;
     }
 
     public static object? UnpackAnyData(AnyData data, System.Type? dataType = null)
@@ -44,7 +54,7 @@ internal static class Deserializer
             AnyData.DataOneofCase.DoubleValue => data.DoubleValue,
             AnyData.DataOneofCase.DictValue => UnpackDict(data.DictValue),
             AnyData.DataOneofCase.ListValue => UnpackList(data.ListValue),
-            AnyData.DataOneofCase.Fallback => UnpackDict(data.Fallback.Data),
+            AnyData.DataOneofCase.Fallback => UnpackFallback(data.Fallback),
             AnyData.DataOneofCase.Message => UnpackMessage(data.Message, dataType),
             AnyData.DataOneofCase.None => null,
             _ => throw new ArgumentOutOfRangeException(
@@ -74,24 +84,23 @@ internal static class Deserializer
 
     private static object? UnpackMessage(Any message, System.Type? dataType)
     {
-        if (message.TryUnpack<ListData>(out var list))
+        string? protobufName = Registry.GetProtobufName(message.TypeUrl);
+        if (protobufName == ListData.Descriptor.FullName)
         {
-            return UnpackList(list);
+            return UnpackList(ListData.Parser.ParseFrom(message.Value));
         }
-        if (message.TryUnpack<DictData>(out var dictionary))
+        if (protobufName == DictData.Descriptor.FullName)
         {
-            return UnpackDict(dictionary);
-        }
-
-        // Check for a custom deserializer registered by a domain package
-        var customDeserialized = Registry.TryDeserialize(message);
-        if (customDeserialized != null)
-        {
-            return customDeserialized;
+            return UnpackDict(DictData.Parser.ParseFrom(message.Value));
         }
 
-        dataType ??= Registry.GetType(message.TypeUrl);
-        return dataType is null ? null : Registry.UnpackAs(message, dataType);
+        return dataType is null ? Registry.Unpack(message) : Registry.UnpackAs(message, dataType);
+    }
+
+    private static object? UnpackFallback(FallbackData data)
+    {
+        var dictionary = UnpackDict(data.Data);
+        return Registry.TryUnpackFallback(dictionary, out var value) ? value : dictionary;
     }
 
     private static List<object?> UnpackList(ListData data)
