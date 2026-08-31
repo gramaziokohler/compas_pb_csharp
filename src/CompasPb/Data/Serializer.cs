@@ -84,8 +84,15 @@ internal static class Serializer
             _ when IsIntegral(obj) => new AnyData { IntValue = Convert.ToInt64(obj) },
             _ when IsFloatingPoint(obj) => new AnyData { DoubleValue = Convert.ToDouble(obj) },
             IEnumerable items => new AnyData { ListValue = PackList(items) },
+            // The hint is here because the usual cause is timing, not a missing registration.
+            // A package registers its conversions when its assembly loads, and the runtime loads
+            // an assembly only when the process first uses one of its types, so a conversion can
+            // genuinely be absent at the moment it is needed and present a moment later.
             _ => throw new ArgumentException(
-                $"Unsupported protobuf value type: {obj.GetType()}.",
+                $"Unsupported protobuf value type: {obj.GetType()}. Nothing is registered to "
+                    + "convert it. If a package registers this type, its assembly may not have "
+                    + "been loaded yet: call Registry.DiscoverRegistrations() once it is loaded, "
+                    + "or register the conversion from application startup.",
                 nameof(obj)
             ),
         };

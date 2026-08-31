@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
@@ -58,19 +57,6 @@ public static class Registry
         public Func<object, IDictionary> Serializer { get; }
     }
 
-    private sealed class PackMiss
-    {
-        public PackMiss(System.Type type, int generation)
-        {
-            Type = type;
-            Generation = generation;
-        }
-
-        public System.Type Type { get; }
-
-        public int Generation { get; }
-    }
-
     private static readonly ConcurrentDictionary<System.Type, Func<object, IMessage>> Serializers =
         new();
 
@@ -94,27 +80,11 @@ public static class Registry
 
     private static readonly ConcurrentDictionary<System.Type, byte> InvokedRegistrars = new();
 
-    // The generation a pack lookup last swept a type at without finding a serializer. Gating on
-    // it keeps the sweep to at most once per type per registration, which matters because
-    // TryPack runs for every value in a payload, primitives included.
-    private static readonly ConcurrentDictionary<System.Type, int> PackMissGenerations = new();
-
-    // The most recent of those, read before the dictionary is. A payload asks about the same
-    // handful of types over and over — every element of a coordinate list is a double, and each
-    // one is looked up in both pack registries — so this keeps the steady state to a reference
-    // compare. One field rather than two so a concurrent replacement cannot pair a type with
-    // another type's generation.
-    private static PackMiss? LastPackMiss;
-
     private static readonly ConcurrentQueue<Exception> DiscoveryFailureLog = new();
 
     // Rebuilt lazily whenever a protobuf type is registered. protobuf-json needs a descriptor
     // for every message that can appear inside an Any, which is what the registry already holds.
     private static TypeRegistry? JsonTypeRegistry;
-
-    // Bumped whenever a registration lands, so a pack miss can tell "nothing has registered
-    // since I last looked" from "something did".
-    private static int RegistrationGeneration;
 
     /// <summary>
     /// The failures swallowed while sweeping loaded assemblies for registrations.
@@ -142,8 +112,8 @@ public static class Registry
         // Subscribed last, once this initializer has nothing left to do. Subscribing first would
         // cover the assemblies the sweep itself loads, but it would also let a load on another
         // thread run a handler that blocks on this initializer while the sweep holds it — and
-        // the sweep loads assemblies of its own. An assembly that slips through that window is
-        // picked up by the rediscovery a pack miss triggers instead.
+        // the sweep loads assemblies of its own. The narrow window that leaves is why an
+        // unsupported type says how to recover by hand.
         WatchAssemblyLoads();
     }
 
@@ -174,7 +144,6 @@ public static class Registry
 
         RegisterMessage<TMessage>(message => message, overwriteDeserializer: false);
         Serializers[typeof(TObject)] = value => serializer((TObject)value);
-        NoteRegistrationChanged();
     }
 
     /// <summary>
@@ -218,7 +187,6 @@ public static class Registry
             value => serializer((TObject)value)
         );
         FallbackDeserializers[dtype] = values => deserializer(values);
-        NoteRegistrationChanged();
     }
 
     /// <summary>
@@ -345,8 +313,8 @@ public static class Registry
         }
         catch (Exception exception)
         {
-            // A host that refuses the subscription still gets the startup sweep and the
-            // rediscovery a pack miss triggers.
+            // A host that refuses the subscription still gets the startup sweep, and callers can
+            // still sweep by hand.
             RecordDiscoveryFailure(exception);
         }
     }
@@ -542,14 +510,14 @@ public static class Registry
 
     internal static bool TryPack(object value, out IMessage? message)
     {
-        var serializer = FindForPack(Serializers, value.GetType());
+        var serializer = FindByInheritance(Serializers, value.GetType());
         message = serializer?.Invoke(value);
         return message is not null;
     }
 
     internal static bool TryPackFallback(object value, out IDictionary? data)
     {
-        var registration = FindForPack(FallbackSerializers, value.GetType());
+        var registration = FindByInheritance(FallbackSerializers, value.GetType());
         if (registration is null)
         {
             data = null;
@@ -667,59 +635,14 @@ public static class Registry
             }
         );
 
-        NoteRegistrationChanged();
+        // The set of known descriptors changed, so the cached JSON registry is stale.
+        JsonTypeRegistry = null;
     }
 
     private static ProtobufRegistration? DiscoverLoadedAssembliesAndFind(string protobufName)
     {
         DiscoverLoadedAssemblies();
         return ProtobufTypes.TryGetValue(protobufName, out var registration) ? registration : null;
-    }
-
-    /// <summary>
-    /// Looks a pack conversion up, re-running registrar discovery once if none is registered yet.
-    /// </summary>
-    /// <remarks>
-    /// The unpack path already rediscovers on a miss. The pack path has the same hole and the
-    /// worse symptom: a caller holding a domain object whose package registered nothing yet gets
-    /// "unsupported type" rather than a failed lookup it could retry. <see cref="OnAssemblyLoad"/>
-    /// closes it on every runtime that raises the event; this covers the ones that do not, and
-    /// the window before the handler is attached. Only the registrar sweep runs, never
-    /// <see cref="DiscoverLoadedAssemblies"/>: nothing but a registrar can add a pack conversion,
-    /// so enumerating every loaded assembly's types here would buy nothing.
-    /// </remarks>
-    private static TValue? FindForPack<TValue>(
-        ConcurrentDictionary<System.Type, TValue> registry,
-        System.Type type
-    )
-        where TValue : class
-    {
-        var found = FindByInheritance(registry, type);
-        if (found is not null)
-        {
-            return found;
-        }
-
-        // Both pack registries share the gate: a value is looked up in each one in turn, and one
-        // sweep settles the question for both.
-        int generation = Volatile.Read(ref RegistrationGeneration);
-        var recent = Volatile.Read(ref LastPackMiss);
-        if (recent is not null && recent.Type == type && recent.Generation == generation)
-        {
-            return null;
-        }
-        if (PackMissGenerations.TryGetValue(type, out int swept) && swept == generation)
-        {
-            Volatile.Write(ref LastPackMiss, new PackMiss(type, generation));
-            return null;
-        }
-
-        DiscoverRegistrations();
-        found = FindByInheritance(registry, type);
-        generation = Volatile.Read(ref RegistrationGeneration);
-        PackMissGenerations[type] = generation;
-        Volatile.Write(ref LastPackMiss, new PackMiss(type, generation));
-        return found;
     }
 
     private static TValue? FindByInheritance<TValue>(
@@ -745,15 +668,6 @@ public static class Registry
         }
 
         return null;
-    }
-
-    // A registration landed. The cached JSON registry no longer covers every known descriptor,
-    // and a pack lookup that already swept for a type without finding one has a reason to look
-    // again.
-    private static void NoteRegistrationChanged()
-    {
-        JsonTypeRegistry = null;
-        _ = Interlocked.Increment(ref RegistrationGeneration);
     }
 
     private static void RecordDiscoveryFailure(Exception exception)
