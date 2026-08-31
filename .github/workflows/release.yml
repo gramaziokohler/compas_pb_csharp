@@ -4,6 +4,15 @@ on:
   push:
     branches:
       - main
+  # release-please only reports release_created on the push that merges its release PR, so a
+  # publish job that fails leaves the tag and the GitHub release with nothing under them and no
+  # way to retry. Dispatching this workflow against that tag runs the publish jobs again.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v1.0.0"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,8 +21,9 @@ jobs:
   # release-please maintains a release pull request from conventional commits.
   # Merging it bumps version.json and the Unity package.json, writes CHANGELOG.md,
   # tags vX.Y.Z, and creates the GitHub release. Everything below publishes into
-  # that release and only runs on the push that merged it.
+  # that release, either on the push that merged it or on a later dispatch naming its tag.
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,9 +41,58 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  build-and-test:
+  # Everything below keys off this rather than off release-please directly, so the two entry
+  # points stay identical from here on: same jobs, same tag, same version.
+  release-context:
     needs: [release-please]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.resolve.outputs.publish }}
+      tag_name: ${{ steps.resolve.outputs.tag_name }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve the release to publish
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$INPUT_TAG"
+            # The tag has to already exist: this path republishes a release, it never makes one.
+            if ! gh release view "$TAG" >/dev/null 2>&1; then
+              echo "ERROR: no GitHub release is tagged ${TAG}."
+              exit 1
+            fi
+            VERSION="${TAG#v}"
+            PUBLISH=true
+          elif [[ "$RELEASE_CREATED" == "true" ]]; then
+            TAG="$RELEASE_TAG"
+            VERSION="$RELEASE_VERSION"
+            PUBLISH=true
+          else
+            # A push that only updated the release pull request. Nothing to publish.
+            TAG=""
+            VERSION=""
+            PUBLISH=false
+          fi
+
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing: ${PUBLISH} ${TAG:-(nothing)}"
+
+  build-and-test:
+    needs: [release-context]
+    if: needs.release-context.outputs.publish == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -49,6 +108,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # The tag, not the branch: a dispatch has to build the released source, and on the
+          # push path this is the commit release-please just tagged anyway.
+          ref: ${{ needs.release-context.outputs.tag_name }}
 
       - name: Setup Dotnet
         uses: actions/setup-dotnet@v5
@@ -81,13 +143,21 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      # Pinned to one framework each, the way the pull request workflow does it. Left
+      # unpinned, dotnet test runs every target framework the test project declares, and the
+      # net48 run aborts on macOS looking for a Mono host the runner does not have.
       - name: Test
         working-directory: ${{ github.workspace }}
-        run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal
+        run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal -f net9.0
+
+      - name: Test (net48)
+        if: runner.os == 'Windows'
+        working-directory: ${{ github.workspace }}
+        run: dotnet test test/CompasPb.Test.csproj --configuration Release --verbosity normal -f net48
 
   publish:
-    needs: [release-please, build-and-test]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-context, build-and-test]
+    if: needs.release-context.outputs.publish == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -105,6 +175,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # The tag, not the branch: a dispatch has to build the released source, and on the
+          # push path this is the commit release-please just tagged anyway.
+          ref: ${{ needs.release-context.outputs.tag_name }}
 
       - name: Setup Dotnet
         uses: actions/setup-dotnet@v5
@@ -143,8 +216,8 @@ jobs:
           if-no-files-found: error
 
   nuget-publish:
-    needs: [release-please, build-and-test]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-context, build-and-test]
+    if: needs.release-context.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -160,6 +233,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # The tag, not the branch: a dispatch has to build the released source, and on the
+          # push path this is the commit release-please just tagged anyway.
+          ref: ${{ needs.release-context.outputs.tag_name }}
 
       - name: Setup Dotnet
         uses: actions/setup-dotnet@v5
@@ -182,7 +258,7 @@ jobs:
       - name: Pack
         shell: bash
         run: |
-          VERSION="${{ needs.release-please.outputs.version }}"
+          VERSION="${{ needs.release-context.outputs.version }}"
           dotnet pack CompasPb.csproj \
             --configuration Release \
             --no-restore \
@@ -220,7 +296,7 @@ jobs:
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
-          VERSION="${{ needs.release-please.outputs.version }}"
+          VERSION="${{ needs.release-context.outputs.version }}"
           for package in nupkg snupkg; do
             dotnet nuget push "${{ github.workspace }}/nupkg/CompasPb.${VERSION}.${package}" \
               --api-key "$NUGET_API_KEY" \
@@ -232,8 +308,8 @@ jobs:
   # published to a dedicated branch whose tags carry only the Unity artifacts.
   # main stays free of binaries.
   upm-publish:
-    needs: [release-please, build-and-test]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-context, build-and-test]
+    if: needs.release-context.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -243,6 +319,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # The tag, not the branch: a dispatch has to build the released source, and on the
+          # push path this is the commit release-please just tagged anyway.
+          ref: ${{ needs.release-context.outputs.tag_name }}
 
       - name: Setup Dotnet
         uses: actions/setup-dotnet@v5
@@ -268,15 +347,17 @@ jobs:
       - name: Publish to the upm branch
         shell: bash
         env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+          VERSION: ${{ needs.release-context.outputs.version }}
         run: |
           set -euo pipefail
           PACKAGE_DIR="upm/dev.compas.compas-pb"
           TAG="upm/v${VERSION}"
 
+          # Skip rather than fail: a dispatch that retries a half-finished release must not
+          # trip over the one job that already got through. The tag still never moves.
           if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "ERROR: ${TAG} already exists."
-            exit 1
+            echo "${TAG} already exists; the Unity package for ${VERSION} is already published."
+            exit 0
           fi
 
           STAGE=$(mktemp -d)
@@ -306,8 +387,8 @@ jobs:
           echo "Published ${TAG} to the upm branch."
 
   upload-release-assets:
-    needs: [release-please, publish, nuget-publish, upm-publish]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-context, publish, nuget-publish, upm-publish]
+    if: needs.release-context.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -337,5 +418,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+          gh release upload "${{ needs.release-context.outputs.tag_name }}" \
             ./release-assets/*.zip --clobber
