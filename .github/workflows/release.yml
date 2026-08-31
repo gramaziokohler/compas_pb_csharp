@@ -22,8 +22,11 @@ jobs:
   # Merging it bumps version.json and the Unity package.json, writes CHANGELOG.md,
   # tags vX.Y.Z, and creates the GitHub release. Everything below publishes into
   # that release, either on the push that merged it or on a later dispatch naming its tag.
+  # The job always runs and its step is what is conditional. Skipping the job instead left
+  # every job downstream of it skipped too, even though release-context sits in between with
+  # if: always(), runs, and reports the release to publish. A job that no longer skips cannot
+  # propagate a skip, whatever the propagation rules turn out to be.
   release-please:
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -35,6 +38,8 @@ jobs:
     steps:
       - name: Run release-please
         id: release
+        # A dispatch publishes a tag that already exists, so there is no release to cut here.
+        if: github.event_name == 'push'
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -45,7 +50,6 @@ jobs:
   # points stay identical from here on: same jobs, same tag, same version.
   release-context:
     needs: [release-please]
-    if: always()
     runs-on: ubuntu-latest
     outputs:
       publish: ${{ steps.resolve.outputs.publish }}
